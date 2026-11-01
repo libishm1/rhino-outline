@@ -1,7 +1,11 @@
 # Rhino Outline
 
-A Rhino 7 and Rhino 8 plug-in with one command, **`Outline`**: pick a PNG or JPG and its outline
-appears in the model as a closed curve.
+A Rhino 7 and Rhino 8 plug-in that turns a PNG or JPG into a closed outline curve.
+
+* **`Outline`**: pick an image file and its outline appears in the model.
+* **`OutlinePicture`**: select pictures already in the model (made with Rhino's `Picture`
+  command) and each gets its outline, lying on the picture whatever its position, rotation, size
+  or tilt.
 
 ```
 Outline  ->  file explorer opens  ->  pick tree.png  ->  outline curve on the canvas
@@ -32,6 +36,7 @@ the downloaded file, right-click it, open *Properties* and tick *Unblock*.
 |---|---|
 | `Outline` | A file dialog opens. Pick an image and the outline is added, selected, on the layer **Outline**. |
 | `-Outline` | Type or paste a file path, then adjust the options below on the command line with a live preview. Press Enter to add the result. Options are remembered for the next `Outline`. |
+| `OutlinePicture` | Select one or more picture frames and press Enter. The outlines are drawn on the pictures. `Alpha`, `Holes` and `Output` can be set at the prompt; the other options come from `-Outline`. Embedded pictures work when the model was opened from a `.3dm`. |
 
 Images: PNG (with or without transparency), JPG, BMP, GIF and TIFF.
 
@@ -82,6 +87,10 @@ Scripting example:
 Blue is the traced image, red is the outline and orange marks the straight bridges added by the
 alpha shape. The examples are in [`examples/`](examples) (drawn by
 [`make_examples.py`](examples/make_examples.py)).
+
+`OutlinePicture` on a rotated, tilted picture and a flat one:
+
+![OutlinePicture](docs/outline-picture.png)
 
 Rhino 7.38, the same `.rhp` (tree PNG, tree JPG, line art):
 

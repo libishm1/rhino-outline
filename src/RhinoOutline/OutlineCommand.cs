@@ -30,20 +30,11 @@ namespace RhinoOutline
   /// </summary>
   public class OutlineCommand : Command
   {
-    const string OutlineLayer = "Outline";
-    const string TraceLayer = "Outline Trace";
+    internal const string OutlineLayer = "Outline";
+    internal const string TraceLayer = "Outline Trace";
     const string ImageLayer = "Outline Image";
 
     public override string EnglishName => "Outline";
-
-    sealed class Options
-    {
-      public OutlineSettings Core = new OutlineSettings();
-      public double Alpha;          // model units, 0 = automatic
-      public double Width;          // model units, 0 = from the image resolution
-      public OutputKind Output = OutputKind.Outline;
-      public bool PlaceImage;
-    }
 
     protected override Result RunCommand(RhinoDoc doc, RunMode mode)
     {
@@ -63,7 +54,7 @@ namespace RhinoOutline
         return Result.Failure;
       }
 
-      Options options = LoadOptions();
+      OutlineOptions options = OutlineOptions.Load();
       var engine = new OutlineEngine(image);
       if (mode != RunMode.Interactive)
       {
@@ -74,7 +65,7 @@ namespace RhinoOutline
 
       Compute(engine, options, doc, dpi, out List<Curve> trace, out List<Curve> outline);
       AddToDocument(doc, path, image, options, dpi, trace, outline);
-      SaveOptions(options);
+      options.Save();
       Report(doc, path, engine, options, dpi, trace.Count, outline.Count);
       if (mode == RunMode.Interactive)
         RhinoApp.WriteLine("Outline: run -Outline to change the detection, alpha, size or output.");
@@ -106,7 +97,7 @@ namespace RhinoOutline
       return path;
     }
 
-    Result RunOptionsLoop(RhinoDoc doc, OutlineEngine engine, Options o, double dpi)
+    Result RunOptionsLoop(RhinoDoc doc, OutlineEngine engine, OutlineOptions o, double dpi)
     {
       var conduit = new PreviewConduit();
       bool zoomed = false;
@@ -167,7 +158,7 @@ namespace RhinoOutline
           else if (index == optOutput) o.Output = (OutputKind)go.Option().CurrentListOptionIndex;
           else if (index == optWidth) o.Width = width.CurrentValue;
           else if (index == optPicture) o.PlaceImage = picture.CurrentValue;
-          else if (index == optDefaults) o = CopyInto(o, new Options());
+          else if (index == optDefaults) o = CopyInto(o, new OutlineOptions());
         }
       }
       finally
@@ -177,7 +168,7 @@ namespace RhinoOutline
       }
     }
 
-    static Options CopyInto(Options target, Options source)
+    static OutlineOptions CopyInto(OutlineOptions target, OutlineOptions source)
     {
       target.Core = source.Core;
       target.Alpha = source.Alpha;
@@ -187,7 +178,7 @@ namespace RhinoOutline
       return target;
     }
 
-    static double UnitsPerPixel(RhinoDoc doc, RgbaImage image, Options o, double dpi)
+    static double UnitsPerPixel(RhinoDoc doc, RgbaImage image, OutlineOptions o, double dpi)
     {
       if (o.Width > 0)
         return o.Width / image.Width;
@@ -195,13 +186,19 @@ namespace RhinoOutline
     }
 
     // Runs the engine and builds world space curves.
-    static void Compute(OutlineEngine engine, Options o, RhinoDoc doc, double dpi, out List<Curve> trace, out List<Curve> outline)
+    static void Compute(OutlineEngine engine, OutlineOptions o, RhinoDoc doc, double dpi, out List<Curve> trace, out List<Curve> outline)
     {
       double scale = UnitsPerPixel(doc, engine.Image, o, dpi);
-      o.Core.AlphaPixels = o.Alpha > 0 ? o.Alpha / scale : 0;
+      Compute(engine, o, CurveBuilder.ImageToWorld(engine.Image.Height, scale), scale, out trace, out outline);
+    }
+
+    /// <summary>Runs the engine and maps the curves from pixels to the world with <paramref name="xf"/>.</summary>
+    /// <param name="unitsPerPixel">Model units per pixel, used to convert the alpha option.</param>
+    internal static void Compute(OutlineEngine engine, OutlineOptions o, Transform xf, double unitsPerPixel, out List<Curve> trace, out List<Curve> outline)
+    {
+      o.Core.AlphaPixels = o.Alpha > 0 ? o.Alpha / unitsPerPixel : 0;
       engine.Update(o.Core);
 
-      Transform xf = CurveBuilder.ImageToWorld(engine.Image.Height, scale);
       List<Curve> pathCurves = engine.Trace.Paths.Select(CurveBuilder.PathCurve).ToList();
 
       outline = new List<Curve>();
@@ -211,7 +208,8 @@ namespace RhinoOutline
         c.Transform(xf);
         // Rhino convention: outer boundaries counter-clockwise, holes clockwise.
         CurveOrientation want = loop.IsHole ? CurveOrientation.Clockwise : CurveOrientation.CounterClockwise;
-        if (c.ClosedCurveOrientation(Vector3d.ZAxis) != want)
+        Vector3d normal = Vector3d.CrossProduct(xf * Vector3d.XAxis, -(xf * Vector3d.YAxis));
+        if (c.ClosedCurveOrientation(normal) != want)
           c.Reverse();
         outline.Add(c);
       }
@@ -231,7 +229,7 @@ namespace RhinoOutline
       return new Polyline(new[] { Point3d.Origin, new Point3d(w, 0, 0), new Point3d(w, h, 0), new Point3d(0, h, 0), Point3d.Origin });
     }
 
-    void AddToDocument(RhinoDoc doc, string path, RgbaImage image, Options o, double dpi, List<Curve> trace, List<Curve> outline)
+    void AddToDocument(RhinoDoc doc, string path, RgbaImage image, OutlineOptions o, double dpi, List<Curve> trace, List<Curve> outline)
     {
       doc.Objects.UnselectAll();
       string name = Path.GetFileNameWithoutExtension(path);
@@ -265,7 +263,7 @@ namespace RhinoOutline
       doc.Views.Redraw();
     }
 
-    static int Layer(RhinoDoc doc, string name, Color color)
+    internal static int Layer(RhinoDoc doc, string name, Color color)
     {
       int index = doc.Layers.FindByFullPath(name, -1);
       if (index >= 0)
@@ -273,7 +271,7 @@ namespace RhinoOutline
       return doc.Layers.Add(new Layer { Name = name, Color = color });
     }
 
-    static string Summary(RhinoDoc doc, OutlineEngine engine, Options o, double dpi, int traceCount, int outlineCount)
+    static string Summary(RhinoDoc doc, OutlineEngine engine, OutlineOptions o, double dpi, int traceCount, int outlineCount)
     {
       double scale = UnitsPerPixel(doc, engine.Image, o, dpi);
       string units = doc.GetUnitSystemName(true, false, true, false);
@@ -284,47 +282,13 @@ namespace RhinoOutline
              $"size {Format(engine.Image.Width * scale)} x {Format(engine.Image.Height * scale)} {units}.";
     }
 
-    void Report(RhinoDoc doc, string path, OutlineEngine engine, Options o, double dpi, int traceCount, int outlineCount)
+    void Report(RhinoDoc doc, string path, OutlineEngine engine, OutlineOptions o, double dpi, int traceCount, int outlineCount)
     {
       RhinoApp.WriteLine($"Outline: {Path.GetFileName(path)} ({engine.Image.Width} x {engine.Image.Height} px)");
       RhinoApp.WriteLine(Summary(doc, engine, o, dpi, traceCount, outlineCount));
     }
 
-    static string Format(double v) => v.ToString(v >= 100 ? "0.#" : "0.###", System.Globalization.CultureInfo.InvariantCulture);
-
-    Options LoadOptions()
-    {
-      var o = new Options();
-      var s = Settings;
-      o.Core.Detect = (ShapeDetect)s.GetInteger("Detect", (int)o.Core.Detect);
-      o.Core.Threshold = s.GetDouble("Threshold", o.Core.Threshold);
-      o.Core.Invert = s.GetBool("Invert", o.Core.Invert);
-      o.Core.FilterSize = s.GetInteger("FilterSize", o.Core.FilterSize);
-      o.Core.CornerRounding = s.GetDouble("CornerRounding", o.Core.CornerRounding);
-      o.Core.KeepHoles = s.GetBool("Holes", o.Core.KeepHoles);
-      o.Alpha = s.GetDouble("Alpha", o.Alpha);
-      o.Width = s.GetDouble("Width", o.Width);
-      o.Output = (OutputKind)s.GetInteger("Output", (int)o.Output);
-      o.PlaceImage = s.GetBool("PlaceImage", o.PlaceImage);
-      if (!Enum.IsDefined(typeof(ShapeDetect), o.Core.Detect)) o.Core.Detect = ShapeDetect.Auto;
-      if (!Enum.IsDefined(typeof(OutputKind), o.Output)) o.Output = OutputKind.Outline;
-      return o;
-    }
-
-    void SaveOptions(Options o)
-    {
-      var s = Settings;
-      s.SetInteger("Detect", (int)o.Core.Detect);
-      s.SetDouble("Threshold", o.Core.Threshold);
-      s.SetBool("Invert", o.Core.Invert);
-      s.SetInteger("FilterSize", o.Core.FilterSize);
-      s.SetDouble("CornerRounding", o.Core.CornerRounding);
-      s.SetBool("Holes", o.Core.KeepHoles);
-      s.SetDouble("Alpha", o.Alpha);
-      s.SetDouble("Width", o.Width);
-      s.SetInteger("Output", (int)o.Output);
-      s.SetBool("PlaceImage", o.PlaceImage);
-    }
+    internal static string Format(double v) => v.ToString(v >= 100 ? "0.#" : "0.###", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>Draws the preview while the -Outline options are being adjusted.</summary>
     sealed class PreviewConduit : DisplayConduit
