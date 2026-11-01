@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Built once against RhinoCommon 7.0 (net48): the same .rhp loads in Rhino 7 and Rhino 8. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>RhinoOutline</AssemblyName>
+    <RootNamespace>RhinoOutline</RootNamespace>
+    <TargetExt>.rhp</TargetExt>
+    <LangVersion>latest</LangVersion>
+    <Version>1.0.0</Version>
+    <Title>RhinoOutline</Title>
+    <Company>RhinoOutline contributors</Company>
+    <Product>RhinoOutline</Product>
+    <Description>Outline command: PNG or JPG image to traced curves and an alpha shape outline.</Description>
+    <Copyright>Copyright (C) 2026 RhinoOutline contributors. GPL v2.</Copyright>
+    <NoWarn>NU1701</NoWarn>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RhinoCommon" Version="7.0.20314.3001" IncludeAssets="compile;build" />
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\RhinoOutline.Core\*.cs" LinkBase="Core" />
+  </ItemGroup>
+
+</Project>
