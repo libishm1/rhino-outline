@@ -7,6 +7,10 @@ A Rhino 7 and Rhino 8 plug-in that turns a PNG or JPG into a closed outline curv
   command) and each gets its outline, lying on the picture whatever its position, rotation, size
   or tilt.
 
+[![Rhino Outline demo (click for the full video)](docs/demo.gif)](https://github.com/libishm1/rhino-outline/releases/download/v1.0.0/rhino-outline-demo.mp4)
+
+▶ [Watch or download the 31 s demo video (MP4)](https://github.com/libishm1/rhino-outline/releases/download/v1.0.0/rhino-outline-demo.mp4)
+
 ```
 Outline  ->  file explorer opens  ->  pick tree.png  ->  outline curve on the canvas
 ```
