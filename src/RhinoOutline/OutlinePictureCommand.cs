@@ -33,6 +33,7 @@ namespace RhinoOutline
       public Vector3d Right;   // bottom edge, full image width
       public Vector3d Up;      // left edge, full image height
       public BrepFace Face;    // trimmed when the picture is cropped
+      public bool Cropped;     // only part of the image is visible: Face is trimmed or smaller than the image
     }
 
     protected override Result RunCommand(RhinoDoc doc, RunMode mode)
@@ -110,7 +111,7 @@ namespace RhinoOutline
         // back to the exact trim edge afterwards.
         ClipRegion clip = null;
         List<Curve> outerLoops = null, innerLoops = null;
-        if (!frame.Face.IsSurface)
+        if (frame.Cropped)
         {
           if (!xf.TryGetInverse(out Transform toPixels) || !CropLoops(frame.Face, out outerLoops, out innerLoops))
           {
@@ -252,7 +253,8 @@ namespace RhinoOutline
         return false;
       }
 
-      string file = obj.GetMaterial(true)?.GetTexture(TextureType.Bitmap)?.FileName;
+      Texture texture = obj.GetMaterial(true)?.GetTexture(TextureType.Bitmap);
+      string file = texture?.FileName;
       if (string.IsNullOrEmpty(file))
       {
         problem = "it has no picture texture";
@@ -267,7 +269,8 @@ namespace RhinoOutline
         return false;
       }
 
-      // A trimmed face keeps its untrimmed surface, and the image spans all of it.
+      // A trimmed face keeps its untrimmed surface, and the image spans all of it (unless the
+      // texture transform below says otherwise).
       BrepFace face = brep.Faces[0];
       if (!face.IsPlanar(doc.ModelAbsoluteTolerance))
       {
@@ -291,11 +294,33 @@ namespace RhinoOutline
         return false;
       }
 
+      // The texture transform maps the face's normalised (s, t) to image (u, v). It is the
+      // identity for a plain picture; Split with Shrink=Yes and ShrinkTrimmedSrf set it so that a
+      // shrunk piece still shows its own part of the image, which then extends past the face.
+      Transform uvw = texture.UvwTransform;
+      double a = uvw.M00, b = uvw.M01, c = uvw.M03, d = uvw.M10, e = uvw.M11, f = uvw.M13;
+      double det = a * e - b * d;
+      if (Math.Abs(det) < 1e-12)
+      {
+        problem = "its picture mapping cannot be read";
+        return false;
+      }
+      Point3d ImagePoint(double iu, double iv)
+      {
+        double s = (e * (iu - c) - b * (iv - f)) / det;
+        double t = (a * (iv - f) - d * (iu - c)) / det;
+        return p00 + s * (p10 - p00) + t * (p01 - p00);
+      }
+      const double eps = 1e-9;
+      bool identity = Math.Abs(a - 1) < eps && Math.Abs(b) < eps && Math.Abs(c) < eps
+                   && Math.Abs(d) < eps && Math.Abs(e - 1) < eps && Math.Abs(f) < eps;
+
       frame.ImagePath = found;
-      frame.Origin = p00;
-      frame.Right = p10 - p00;
-      frame.Up = p01 - p00;
+      frame.Origin = ImagePoint(0, 0);
+      frame.Right = ImagePoint(1, 0) - frame.Origin;
+      frame.Up = ImagePoint(0, 1) - frame.Origin;
       frame.Face = face;
+      frame.Cropped = !face.IsSurface || !identity;
       return true;
     }
   }

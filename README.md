@@ -117,7 +117,8 @@ Rhino 7.38, the same `.rhp` (tree PNG, tree JPG, line art):
    the outline is a smooth PolyCurve and not a polyline.
 4. **Auto alpha**: background triangles are added in order of circumradius until the region is one
    piece connected through edges. The radius at that point is the alpha.
-5. **Crop** (`ClipRegion.cs`, `OutlinePictureCommand.cs`): for a trimmed picture the trim loops
+5. **Crop** (`ClipRegion.cs`, `OutlinePictureCommand.cs`): the image is placed from the face and its
+   texture transform, which Rhino changes when a piece is shrunk. For a trimmed or shrunk picture the face loops
    are mapped into the image and only the mask pixels inside them (grown by one pixel) are kept,
    so steps 2 to 4 see just the visible part. The curves are then cut back to the exact trim
    loops with planar curve booleans.
@@ -126,6 +127,14 @@ The core (`src/RhinoOutline.Core`) has no Rhino dependency. The plug-in (`src/Rh
 builds against RhinoCommon 7.0 for .NET Framework 4.8, which Rhino 8 also loads.
 
 ## Changes
+
+**1.1.1**
+* `OutlinePicture` follows the picture's texture placement. Pieces made by `Split` with
+  `Shrink=Yes`, or shrunk with `ShrinkTrimmedSrf`, show only their part of the image, but 1.1.0
+  fitted the whole image onto each piece, so the outline came out squeezed and in the wrong place.
+  Plain `Split` and `Trim` crops were already right and give the same curves as 1.1.0.
+* Tested in Rhino 7.38 and 8.30: line, freeform and circle splits, each with and without
+  shrinking, a tilted picture and a JPG.
 
 **1.1.0**
 * `OutlinePicture` outlines cropped (trimmed) pictures from their visible part; before, they
