@@ -4,15 +4,17 @@ Text and steps for the food4Rhino page of the AI edition.
 
 ## Publish
 
-1. Push the Yak package (needs a McNeel account, once per version):
+1. Done: `rhino-outline-ai` 1.2.0 is on the Yak server (pushed 2026-11-02). The Yak package
+   is 46 MB: it includes U²-Net small and MobileSAM, and IS-Net is downloaded on first use.
+   A full 210 MB package was dropped by the server after about a minute, twice. A new version
+   is pushed with
 
    ```
    "C:\Program Files\Rhino 8\System\Yak.exe" login
-   "C:\Program Files\Rhino 8\System\Yak.exe" push rhino-outline-ai-1.2.0-rh7_0-win.yak
+   "C:\Program Files\Rhino 8\System\Yak.exe" push rhino-outline-ai-<version>-rh7_0-win.yak
    ```
 
-   The package is 209 MB. On a slow connection the push can time out; McNeel support can
-   take the file directly in that case.
+   after `build.ps1 -Dist dist-yak -Models <folder with u2netp and the two MobileSAM files>`.
 2. On food4rhino.com, *Submit app*, and link the Yak package *rhino-outline-ai* (a plug-in
    with extra files, here ONNX Runtime and the networks, has to come from Yak).
 3. Upload the screenshots: `docs/segmentation/rhino8.jpg`, `docs/segmentation/photos-2.jpg`
@@ -47,8 +49,9 @@ The object is then vectorised with Potrace (an exact C# port, with four bugs of 
 fixed), and an alpha shape wraps separate pieces such as loose leaves into one outline. The
 outline is a smooth, closed, valid curve that you can extrude, offset or laser cut.
 
-Everything runs on your computer with ONNX Runtime: no GPU, no account, no upload, works
-offline. The networks are included in the installer.
+Everything runs on your computer with ONNX Runtime: no GPU, no account, no upload. U²-Net small
+and MobileSAM are included; IS-Net (171 MB) is downloaded the first time Detect=AI uses it,
+after asking. A 209 MB offline installer with all three is on GitHub.
 
 The methods were chosen by testing 19 options, classical and neural, on scenes with cast
 shadows and on real photos; the comparison is published with the source.
@@ -64,8 +67,8 @@ shadows and on real photos; the comparison is published with the source.
 
 ## Requirements
 
-Rhino 7 or Rhino 8 for Windows (64 bit). Installer 209 MB. `AIModel=Best` (BiRefNet lite) is
-optional and downloaded on first use (214 MB).
+Rhino 7 or Rhino 8 for Windows (64 bit). Package 46 MB, plus IS-Net (171 MB) on first use of
+Detect=AI. `AIModel=Best` (BiRefNet lite, 214 MB) is optional and also downloaded on first use.
 
 ## Licence and source
 

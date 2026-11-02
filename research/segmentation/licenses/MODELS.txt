@@ -4,6 +4,8 @@ Neural networks bundled with Rhino Outline AI
 The files in the "models" folder are pretrained neural networks in ONNX format. They are data
 that Rhino Outline loads with ONNX Runtime; they are not part of the Rhino Outline source code
 (GPL v2) and keep their own licences. They are unmodified copies of the files listed below.
+The installer from GitHub (.rhi) includes all three networks; the Yak / food4Rhino package
+includes u2netp and MobileSAM, and downloads IS-Net the first time it is used.
 
 u2netp.onnx
   Network:  U^2-Net (small), Qin et al., "U^2-Net: Going Deeper with Nested U-Structure for

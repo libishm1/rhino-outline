@@ -28,7 +28,7 @@ leaves or the strokes of a drawing, are wrapped into one outline automatically.
 | Version | [1.1.1](https://github.com/libishm1/rhino-outline/releases/tag/v1.1.1) (latest) | [1.2.0](https://github.com/libishm1/rhino-outline/releases/tag/v1.2.0-ai) |
 | For | Students, clip art, scans, product shots on a clean backdrop | Anyone outlining **photos**: shadows, rooms, walls, several objects |
 | Finds the shape by | Transparency, border colour or dark pixels | The same, plus `Detect=Shadows`, `Detect=AI` (neural networks) and `OutlineClick` (click on the object, Segment Anything) |
-| Download | 40 KB | 209 MB (networks included, works offline) |
+| Download | 40 KB | 209 MB `.rhi` with all networks, or 46 MB from the Rhino package manager (IS-Net downloaded on first use) |
 
 The AI edition runs three neural networks on the CPU with ONNX Runtime: **IS-Net** finds the
 main object automatically (`Detect=AI`, about 2 s per photo), **U²-Net small** is a fast
@@ -53,11 +53,14 @@ the downloaded file, right-click it, open *Properties* and tick *Unblock*.
 
 ## Install the AI edition
 
-1. Download `RhinoOutline-AI-1.2.0.rhi` from the
+1. Either type `PackageManager` in Rhino and install **rhino-outline-ai**, or download
+   `RhinoOutline-AI-1.2.0.rhi` from the
    [1.2.0 release](https://github.com/libishm1/rhino-outline/releases/tag/v1.2.0-ai) and
-   double-click it (or, once it is listed there, install *rhino-outline-ai* from Rhino's
-   `PackageManager` or food4Rhino). It replaces the standard edition: it is the same plug-in
-   with more in it, so uninstall one before installing the other.
+   double-click it. The `.rhi` (209 MB) includes all three networks and works offline; the
+   package manager version (46 MB) includes U²-Net small and MobileSAM and downloads IS-Net
+   (171 MB) the first time `Detect=AI` needs it, after asking. Either replaces the standard
+   edition: it is the same plug-in with more in it, so uninstall one before installing the
+   other.
 2. Restart Rhino, type `-Outline`, set `Detect=AI`, or select a picture with `OutlineClick`.
 
 Windows, Rhino 7 or 8, 64 bit. The networks run on the CPU; no GPU, account or internet

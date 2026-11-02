@@ -1,8 +1,10 @@
 # Builds the plug-in and its installers.
 #
 #   build.ps1                         dist\RhinoOutline.rhp + .rhi, networks downloaded on first use
-#   build.ps1 -Models <folder>        AI edition: also bundles the networks from <folder>
-#                                     (u2netp, IS-Net, MobileSAM) and builds a Yak package
+#   build.ps1 -Models <folder>        AI edition: also bundles the networks found in <folder>
+#                                     (u2netp, IS-Net, MobileSAM) and builds a Yak package.
+#                                     The .rhi on GitHub has all three; the Yak package leaves
+#                                     out IS-Net (the Yak server drops uploads of ~200 MB)
 #   -Dist <folder>                    output folder (default dist)
 #
 # The .rhi is a zip the Rhino installer understands; the .yak is for the Rhino package manager
@@ -36,7 +38,9 @@ if ($Models) {
   $edition = '-AI'
   $modelDir = Join-Path $stage 'models'
   New-Item -ItemType Directory -Force $modelDir | Out-Null
+  # bundles whichever of these are in the folder; a network left out is downloaded on first use
   'u2netp.onnx', 'isnet-general-use.onnx', 'mobile_sam_image_encoder.onnx', 'sam_mask_decoder_multi.onnx' |
+    Where-Object { Test-Path (Join-Path $Models $_) } |
     ForEach-Object { Copy-Item (Join-Path $Models $_) $modelDir }
   Copy-Item "$root/research/segmentation/licenses/Apache-2.0.txt" $licenses
   Copy-Item "$root/research/segmentation/licenses/MODELS.txt" "$licenses/MODELS.txt"
@@ -65,7 +69,9 @@ description: >
   Rhino Outline AI. Turns a photo or image into a closed outline curve. Finds the object with
   neural segmentation (IS-Net, U2-Net small) or with one click (MobileSAM, a small Segment
   Anything model), ignores cast shadows, then traces it with Potrace and wraps it with an alpha
-  shape. Commands Outline, OutlinePicture and OutlineClick. Runs on the CPU, offline.
+  shape. Commands Outline, OutlinePicture and OutlineClick. Runs on the CPU. U2-Net small and
+  MobileSAM are included; IS-Net (the default for Detect=AI, 171 MB) is downloaded the first
+  time it is used, after asking.
 url: https://github.com/libishm1/rhino-outline
 keywords:
 - outline
@@ -73,9 +79,9 @@ keywords:
 - trace
 - vectorize
 - potrace
-- alpha shape
+- alpha-shape
 - segmentation
-- background removal
+- background-removal
 - sam
 - ai
 "@
