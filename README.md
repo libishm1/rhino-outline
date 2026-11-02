@@ -21,6 +21,13 @@ Under the hood the image is **vectorised** with Potrace (the "vector raster") an
 **alpha shape** of the traced curves gives the outline. Pieces that do not touch, such as loose
 leaves or the strokes of a drawing, are wrapped into one outline automatically.
 
+> **Branch `explore/segmentation` (experimental, not released).** Adds `Detect=Shadows`
+> (background removal that ignores cast shadows, no download), `Detect=AI` (salient object
+> networks: U²-Net small, IS-Net, BiRefNet lite) and the command `OutlineClick` (click on the
+> object in a picture; MobileSAM, a small Segment Anything model). The networks are downloaded
+> on first use. See [research/segmentation](research/segmentation) for the comparison of 19
+> method variants on rendered scenes with shadows and on real photos.
+
 ## Install (students)
 
 1. Download `RhinoOutline.rhp` (or `RhinoOutline.rhi`) from the
@@ -40,6 +47,7 @@ the downloaded file, right-click it, open *Properties* and tick *Unblock*.
 |---|---|
 | `Outline` | A file dialog opens. Pick an image and the outline is added, selected, on the layer **Outline**. |
 | `-Outline` | Type or paste a file path, then adjust the options below on the command line with a live preview. Press Enter to add the result. Options are remembered for the next `Outline`. |
+| `OutlineClick` | Select a picture, click on the object, press Enter. More clicks add to the object; `Larger` and `Smaller` switch between what the network sees under the click. *(explore/segmentation)* |
 | `OutlinePicture` | Select one or more picture frames and press Enter. The outlines are drawn on the pictures. `Alpha`, `Holes` and `Output` can be set at the prompt; the other options come from `-Outline`. Embedded pictures work when the model was opened from a `.3dm`. |
 
 Images: PNG (with or without transparency), JPG, BMP, GIF and TIFF.
@@ -61,6 +69,8 @@ stored in the file (96 dpi if it has none) unless you set `Width`.
 | `Transparency` | Opaque pixels | PNG with a transparent background |
 | `Background` | Pixels that differ from the border colour | PNG or JPG on a plain white (or any plain) background |
 | `Dark` | Dark pixels | Scans and sketches on paper that is not a flat colour |
+| `Shadows` | Pixels unlike the background, cast shadows excluded | Photos of objects on a plain or two-tone backdrop |
+| `AI` | A segmentation network decides (`AIModel`: `Fast`, `Accurate`, `Best`) | Photos in general |
 
 `Auto` uses `Transparency` when at least 0.1 % of the pixels are transparent, otherwise
 `Background` when 90 % of the image border is one colour, otherwise `Dark`. The command line

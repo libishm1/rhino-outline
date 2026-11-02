@@ -1,0 +1,128 @@
+[
+ {
+  "file": "00_shoes.jpg",
+  "click": null,
+  "title": "File:070 Basic weiss, schwarz, rosa, pink, dunkelblau.jpg",
+  "licence": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:070_Basic_weiss,_schwarz,_rosa,_pink,_dunkelblau.jpg",
+  "artist": "Roben123"
+ },
+ {
+  "file": "01_shoes.jpg",
+  "click": [
+   704,
+   384
+  ],
+  "title": "File:2003 (2013-02-27) Trip, hout-leer-ijzer (1400-1500).jpg",
+  "licence": "CC BY-SA 2.0",
+  "page": "https://commons.wikimedia.org/wiki/File:2003_(2013-02-27)_Trip,_hout-leer-ijzer_(1400-1500).jpg",
+  "artist": "Archeologie Gorinchem"
+ },
+ {
+  "file": "04_shoes.jpg",
+  "click": [
+   640,
+   362
+  ],
+  "title": "File:Campus BlueWhite.jpg",
+  "licence": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Campus_BlueWhite.jpg",
+  "artist": "dfgfdd"
+ },
+ {
+  "file": "09_shoes.jpg",
+  "click": null,
+  "title": "File:New Balance custom 574.jpg",
+  "licence": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:New_Balance_custom_574.jpg",
+  "artist": "Petar Milošević"
+ },
+ {
+  "file": "11_shoes.jpg",
+  "click": [
+   467,
+   480
+  ],
+  "title": "File:Sko - Nordiska museet - NM.0002337 (1).jpg",
+  "licence": "CC BY 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Sko_-_Nordiska_museet_-_NM.0002337_(1).jpg",
+  "artist": "Elisabeth Eriksson"
+ },
+ {
+  "file": "13_shoes.jpg",
+  "click": [
+   474,
+   394
+  ],
+  "title": "File:Sko - Nordiska museet - NM.0002337 (3).jpg",
+  "licence": "CC BY 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Sko_-_Nordiska_museet_-_NM.0002337_(3).jpg",
+  "artist": "Elisabeth Eriksson"
+ },
+ {
+  "file": "16_plants.jpg",
+  "click": [
+   605,
+   1071
+  ],
+  "title": "File:Acacallis cyanea x Otostylis brachystalix 'Rhein Blue Baby' (8295351844).jpg",
+  "licence": "CC BY 2.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Acacallis_cyanea_x_Otostylis_brachystalix_%27Rhein_Blue_Baby%27_(8295351844).jpg",
+  "artist": "Maja Dumat from Deutschland (Germany)"
+ },
+ {
+  "file": "17_plants.jpg",
+  "click": [
+   630,
+   416
+  ],
+  "title": "File:Adansonia digitata MHNT.BOT.2020.2.2.jpg",
+  "licence": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Adansonia_digitata_MHNT.BOT.2020.2.2.jpg",
+  "artist": "Roger Culos"
+ },
+ {
+  "file": "23_plants.jpg",
+  "click": [
+   624,
+   464
+  ],
+  "title": "File:Arbutus unedo coupe MHNT.jpg",
+  "licence": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Arbutus_unedo_coupe_MHNT.jpg",
+  "artist": "Roger Culos"
+ },
+ {
+  "file": "24_plants.jpg",
+  "click": [
+   625,
+   1624
+  ],
+  "title": "File:Asparagus-Bundle.jpg",
+  "licence": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Asparagus-Bundle.jpg",
+  "artist": "Evan-Amos"
+ },
+ {
+  "file": "25_plants.jpg",
+  "click": [
+   448,
+   890
+  ],
+  "title": "File:Aspidistra 01 (fcm).jpg",
+  "licence": "CC BY-SA 2.0 de",
+  "page": "https://commons.wikimedia.org/wiki/File:Aspidistra_01_(fcm).jpg",
+  "artist": "Frank C. Müller"
+ },
+ {
+  "file": "33_shadows.jpg",
+  "click": [
+   877,
+   862
+  ],
+  "title": "File:0622 - Archaeological Museum, Athens - Hermes - Photo by Giovanni Dall'Orto, Nov 10 2009.jpg",
+  "licence": "Attribution",
+  "page": "https://commons.wikimedia.org/wiki/File:0622_-_Archaeological_Museum,_Athens_-_Hermes_-_Photo_by_Giovanni_Dall%27Orto,_Nov_10_2009.jpg",
+  "artist": "G.dallorto"
+ }
+]

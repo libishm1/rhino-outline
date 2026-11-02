@@ -35,6 +35,12 @@ namespace RhinoOutline.Core
     /// <summary>Only the shape inside this region counts (the visible part of a cropped picture); null for all of it.</summary>
     public ClipRegion Clip;
 
+    /// <summary>
+    /// For <see cref="ShapeDetect.AI"/>: the probability (0 to 255) that each pixel belongs to the
+    /// object, computed by the plug-in with a segmentation network. Row major, top row first.
+    /// </summary>
+    public byte[] Probability;
+
     public OutlineSettings Clone() => (OutlineSettings)MemberwiseClone();
   }
 
@@ -69,7 +75,7 @@ namespace RhinoOutline.Core
     {
       bool maskDirty = last == null || Mask == null
         || s.Detect != last.Detect || s.Threshold != last.Threshold || s.Invert != last.Invert
-        || !ReferenceEquals(s.Clip, last.Clip);
+        || !ReferenceEquals(s.Clip, last.Clip) || !ReferenceEquals(s.Probability, last.Probability);
       bool traceDirty = maskDirty || Trace == null
         || s.FilterSize != last.FilterSize || s.CornerRounding != last.CornerRounding
         || s.OptimizeCurves != last.OptimizeCurves || s.OptimizeTolerance != last.OptimizeTolerance
@@ -78,7 +84,7 @@ namespace RhinoOutline.Core
       var watch = Stopwatch.StartNew();
       if (maskDirty)
       {
-        Mask = ShapeMask.Build(image, s.Detect, s.Threshold, s.Invert);
+        Mask = ShapeMask.Build(image, s.Detect, s.Threshold, s.Invert, s.Probability);
         if (s.Clip != null)
         {
           s.Clip.Apply(Mask.Mask);

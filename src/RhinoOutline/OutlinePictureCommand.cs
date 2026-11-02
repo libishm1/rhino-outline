@@ -26,7 +26,7 @@ namespace RhinoOutline
     public override string EnglishName => "OutlinePicture";
 
     /// <summary>Where a picture's image sits in the world: lower left corner and the two edges.</summary>
-    struct PictureFrame
+    internal struct PictureFrame
     {
       public string ImagePath;
       public Point3d Origin;   // lower left of the image
@@ -94,16 +94,7 @@ namespace RhinoOutline
           continue;
         }
 
-        // Pixel (x, y) with y down maps to Origin + x/W * Right + (H - y)/H * Up.
-        Vector3d px = frame.Right / image.Width;
-        Vector3d py = -frame.Up / image.Height;
-        Vector3d normal = Vector3d.CrossProduct(frame.Right, frame.Up);
-        normal.Unitize();
-        Point3d topLeft = frame.Origin + frame.Up;
-        var xf = Transform.Identity;
-        xf.M00 = px.X; xf.M01 = py.X; xf.M02 = normal.X; xf.M03 = topLeft.X;
-        xf.M10 = px.Y; xf.M11 = py.Y; xf.M12 = normal.Y; xf.M13 = topLeft.Y;
-        xf.M20 = px.Z; xf.M21 = py.Z; xf.M22 = normal.Z; xf.M23 = topLeft.Z;
+        Transform xf = PixelToWorld(frame, image, out double unitsPerPixel);
 
         string name = string.IsNullOrEmpty(obj.Attributes.Name) ? Path.GetFileNameWithoutExtension(frame.ImagePath) : obj.Attributes.Name;
 
@@ -125,7 +116,7 @@ namespace RhinoOutline
 
         var engine = new OutlineEngine(image);
         options.Core.Clip = clip;
-        OutlineCommand.Compute(engine, options, xf, px.Length, out List<Curve> trace, out List<Curve> outline);
+        OutlineCommand.Compute(engine, options, xf, unitsPerPixel, out List<Curve> trace, out List<Curve> outline);
         options.Core.Clip = null;
         if (clip != null)
         {
@@ -150,7 +141,7 @@ namespace RhinoOutline
 
         string alphaText = options.Alpha > 0
           ? OutlineCommand.Format(options.Alpha)
-          : "Auto (" + OutlineCommand.Format(engine.AutoAlpha * px.Length) + ")";
+          : "Auto (" + OutlineCommand.Format(engine.AutoAlpha * unitsPerPixel) + ")";
         RhinoApp.WriteLine($"OutlinePicture: {Path.GetFileName(frame.ImagePath)}: {engine.Mask.Description}; " +
                            $"{trace.Count} traced curve(s), {outline.Count} outline(s), Alpha={alphaText}.");
         done++;
@@ -164,8 +155,24 @@ namespace RhinoOutline
       return done > 0 ? Result.Success : Result.Nothing;
     }
 
+    /// <summary>Pixel (x, y) with y down maps to Origin + x/W * Right + (H - y)/H * Up.</summary>
+    internal static Transform PixelToWorld(PictureFrame frame, RgbaImage image, out double unitsPerPixel)
+    {
+      Vector3d px = frame.Right / image.Width;
+      Vector3d py = -frame.Up / image.Height;
+      Vector3d normal = Vector3d.CrossProduct(frame.Right, frame.Up);
+      normal.Unitize();
+      Point3d topLeft = frame.Origin + frame.Up;
+      var xf = Transform.Identity;
+      xf.M00 = px.X; xf.M01 = py.X; xf.M02 = normal.X; xf.M03 = topLeft.X;
+      xf.M10 = px.Y; xf.M11 = py.Y; xf.M12 = normal.Y; xf.M13 = topLeft.Y;
+      xf.M20 = px.Z; xf.M21 = py.Z; xf.M22 = normal.Z; xf.M23 = topLeft.Z;
+      unitsPerPixel = px.Length;
+      return xf;
+    }
+
     /// <summary>The trim loops of a cropped picture in world space: the outer boundary and any holes.</summary>
-    static bool CropLoops(BrepFace face, out List<Curve> outer, out List<Curve> inner)
+    internal static bool CropLoops(BrepFace face, out List<Curve> outer, out List<Curve> inner)
     {
       outer = new List<Curve>();
       inner = new List<Curve>();
@@ -180,7 +187,7 @@ namespace RhinoOutline
     }
 
     /// <summary>A crop loop as a polygon in image space (pixels, y down) for the pixel mask.</summary>
-    static Vec2[] PixelPolygon(Curve loop, Transform toPixels)
+    internal static Vec2[] PixelPolygon(Curve loop, Transform toPixels)
     {
       Curve c = loop.DuplicateCurve();
       c.Transform(toPixels);
@@ -205,7 +212,7 @@ namespace RhinoOutline
     /// other way like any hole. A curve whose cut fails is kept as it is: the pixel mask already
     /// keeps it within a pixel of the crop edge.
     /// </summary>
-    static List<Curve> ClipToCrop(List<Curve> curves, Curve outer, List<Curve> inner, Plane plane, double tolerance)
+    internal static List<Curve> ClipToCrop(List<Curve> curves, Curve outer, List<Curve> inner, Plane plane, double tolerance)
     {
       var result = new List<Curve>();
       foreach (Curve c in curves)
@@ -241,7 +248,7 @@ namespace RhinoOutline
     /// object whose material has a bitmap texture, so moved, rotated, scaled, cropped (trimmed)
     /// and embedded pictures all work.
     /// </summary>
-    static bool TryGetFrame(RhinoDoc doc, RhinoObject obj, out PictureFrame frame, out string problem)
+    internal static bool TryGetFrame(RhinoDoc doc, RhinoObject obj, out PictureFrame frame, out string problem)
     {
       frame = default(PictureFrame);
       problem = null;

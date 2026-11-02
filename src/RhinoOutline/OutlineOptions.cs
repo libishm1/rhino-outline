@@ -3,6 +3,7 @@
 
 using System;
 using RhinoOutline.Core;
+using RhinoOutline.Segmentation;
 
 namespace RhinoOutline
 {
@@ -22,6 +23,9 @@ namespace RhinoOutline
     /// <summary>Also place the image as a picture frame. Not used for pictures.</summary>
     public bool PlaceImage;
 
+    /// <summary>The network used by Detect=AI.</summary>
+    public AIModel Model = AIModel.Accurate;
+
     public static OutlineOptions Load()
     {
       var o = new OutlineOptions();
@@ -36,8 +40,10 @@ namespace RhinoOutline
       o.Width = s.GetDouble("Width", o.Width);
       o.Output = (OutputKind)s.GetInteger("Output", (int)o.Output);
       o.PlaceImage = s.GetBool("PlaceImage", o.PlaceImage);
+      o.Model = (AIModel)s.GetInteger("AIModel", (int)o.Model);
       if (!Enum.IsDefined(typeof(ShapeDetect), o.Core.Detect)) o.Core.Detect = ShapeDetect.Auto;
       if (!Enum.IsDefined(typeof(OutputKind), o.Output)) o.Output = OutputKind.Outline;
+      if (!Enum.IsDefined(typeof(AIModel), o.Model)) o.Model = AIModel.Accurate;
       return o;
     }
 
@@ -54,6 +60,7 @@ namespace RhinoOutline
       s.SetDouble("Width", Width);
       s.SetInteger("Output", (int)Output);
       s.SetBool("PlaceImage", PlaceImage);
+      s.SetInteger("AIModel", (int)Model);
     }
   }
 }

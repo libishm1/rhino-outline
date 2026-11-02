@@ -16,6 +16,10 @@ namespace RhinoOutline.Core
     Background,
     /// <summary>Dark pixels are the shape (classic black on white tracing).</summary>
     Dark,
+    /// <summary>Pixels unlike the background are the shape, and cast shadows are not (photos of objects).</summary>
+    Shadows,
+    /// <summary>A segmentation network decides (the plug-in supplies its probability per pixel).</summary>
+    AI,
   }
 
   /// <summary>Straight (not premultiplied) RGBA pixels, four bytes per pixel, top row first.</summary>
@@ -85,9 +89,12 @@ namespace RhinoOutline.Core
 
     /// <summary>Splits an image into shape and background pixels.</summary>
     /// <param name="threshold">0 to 1. In every mode a higher value puts more pixels into the shape.</param>
-    public static MaskResult Build(RgbaImage image, ShapeDetect mode, double threshold, bool invert)
+    /// <param name="probability">For <see cref="ShapeDetect.AI"/>: object probability per pixel, 0 to 255.</param>
+    public static MaskResult Build(RgbaImage image, ShapeDetect mode, double threshold, bool invert, byte[] probability = null)
     {
       var result = new MaskResult();
+      if (mode == ShapeDetect.AI && (probability == null || probability.Length != image.Width * image.Height))
+        mode = ShapeDetect.Auto;
       byte br = 255, bg = 255, bb = 255;
       if (mode == ShapeDetect.Auto)
       {
@@ -113,6 +120,20 @@ namespace RhinoOutline.Core
 
       switch (mode)
       {
+        case ShapeDetect.AI:
+        {
+          double cut = (1.0 - threshold) * 255.0;
+          for (int i = 0; i < count; i++)
+            data[i] = (byte)(probability[i] > cut ? 1 : 0);
+          result.Description = "the segmentation network decides the shape";
+          break;
+        }
+        case ShapeDetect.Shadows:
+        {
+          Array.Copy(ShadowMask.Build(image, threshold).Data, data, count);
+          result.Description = "pixels unlike the background are the shape, cast shadows are not";
+          break;
+        }
         case ShapeDetect.Transparency:
         {
           double cut = (1.0 - threshold) * 255.0;

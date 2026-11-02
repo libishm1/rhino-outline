@@ -14,6 +14,7 @@ using Rhino.Geometry;
 using Rhino.Input;
 using Rhino.Input.Custom;
 using RhinoOutline.Core;
+using RhinoOutline.Segmentation;
 
 namespace RhinoOutline
 {
@@ -122,6 +123,7 @@ namespace RhinoOutline
           go.SetCommandPrompt("Outline options. Press Enter when done");
           go.AcceptNothing(true);
           int optDetect = go.AddOptionEnumList("Detect", o.Core.Detect);
+          int optModel = o.Core.Detect == ShapeDetect.AI ? go.AddOptionEnumList("AIModel", o.Model) : -1;
           var threshold = new OptionDouble(o.Core.Threshold, 0.0, 1.0);
           int optThreshold = go.AddOptionDouble("Threshold", ref threshold, "Threshold, higher includes more pixels (0 to 1)");
           var invert = new OptionToggle(o.Core.Invert, "No", "Yes");
@@ -149,6 +151,7 @@ namespace RhinoOutline
 
           int index = go.Option().Index;
           if (index == optDetect) o.Core.Detect = (ShapeDetect)go.Option().CurrentListOptionIndex;
+          else if (index == optModel) o.Model = (AIModel)go.Option().CurrentListOptionIndex;
           else if (index == optThreshold) o.Core.Threshold = threshold.CurrentValue;
           else if (index == optInvert) o.Core.Invert = invert.CurrentValue;
           else if (index == optFilter) o.Core.FilterSize = filter.CurrentValue;
@@ -175,6 +178,7 @@ namespace RhinoOutline
       target.Width = source.Width;
       target.Output = source.Output;
       target.PlaceImage = source.PlaceImage;
+      target.Model = source.Model;
       return target;
     }
 
@@ -197,7 +201,14 @@ namespace RhinoOutline
     internal static void Compute(OutlineEngine engine, OutlineOptions o, Transform xf, double unitsPerPixel, out List<Curve> trace, out List<Curve> outline)
     {
       o.Core.AlphaPixels = o.Alpha > 0 ? o.Alpha / unitsPerPixel : 0;
-      engine.Update(o.Core);
+      if (o.Core.Detect == ShapeDetect.AI && o.Core.Probability == null)
+      {
+        o.Core.Probability = AIProbability(engine.Image, o.Model);
+        engine.Update(o.Core);
+        o.Core.Probability = null;
+      }
+      else
+        engine.Update(o.Core);
 
       List<Curve> pathCurves = engine.Trace.Paths.Select(CurveBuilder.PathCurve).ToList();
 
@@ -221,6 +232,33 @@ namespace RhinoOutline
         w.Transform(xf);
         trace.Add(w);
       }
+    }
+
+    static RgbaImage aiImage;
+    static AIModel aiModel;
+    static byte[] aiProbability;
+
+    /// <summary>Object probability from the network, kept for the last image so that changing
+    /// other options does not run the network again. Null if the model is not available.</summary>
+    static byte[] AIProbability(RgbaImage image, AIModel model)
+    {
+      if (ReferenceEquals(image, aiImage) && model == aiModel && aiProbability != null)
+        return aiProbability;
+      RhinoApp.WriteLine($"Outline: running the {model} segmentation network...");
+      try
+      {
+        aiProbability = NeuralSegmenter.Probability(image, model);
+      }
+      catch (Exception ex)
+      {
+        RhinoApp.WriteLine($"Outline: the segmentation network failed ({ex.Message}).");
+        aiProbability = null;
+      }
+      if (aiProbability == null)
+        RhinoApp.WriteLine("Outline: no segmentation network, using Detect=Auto instead.");
+      aiImage = image;
+      aiModel = model;
+      return aiProbability;
     }
 
     static Polyline ImageFrame(RgbaImage image, double scale)

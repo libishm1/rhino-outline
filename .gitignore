@@ -1,5 +1,7 @@
 bin/
 obj/
 dist/
+dist-*/
 .vs/
 *.user
+__pycache__/
