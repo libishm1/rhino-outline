@@ -21,6 +21,13 @@ Under the hood the image is **vectorised** with Potrace (the "vector raster") an
 **alpha shape** of the traced curves gives the outline. Pieces that do not touch, such as loose
 leaves or the strokes of a drawing, are wrapped into one outline automatically.
 
+> **Rhino Outline AI 1.2.0** is a separate, larger edition for outlining **photos**: neural
+> segmentation (IS-Net), click-to-select with Segment Anything (MobileSAM) and shadow removal,
+> running offline on the CPU. 209 MB.
+> [Download](https://github.com/libishm1/rhino-outline/releases/tag/v1.2.0-ai) ·
+> [How the networks were chosen](https://github.com/libishm1/rhino-outline/tree/explore/segmentation/research/segmentation).
+> The standard edition below stays the one for students.
+
 ## Install (students)
 
 1. Download `RhinoOutline.rhp` (or `RhinoOutline.rhi`) from the
