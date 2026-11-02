@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
@@ -18,6 +19,7 @@ namespace RhinoOutline
   /// <summary>
   /// OutlinePicture: outline pictures that are already in the model (made with the Picture
   /// command). The outline lands on each picture frame, following its position, rotation and size.
+  /// A cropped (trimmed) picture is outlined from its visible part only.
   /// </summary>
   public class OutlinePictureCommand : Command
   {
@@ -30,6 +32,7 @@ namespace RhinoOutline
       public Point3d Origin;   // lower left of the image
       public Vector3d Right;   // bottom edge, full image width
       public Vector3d Up;      // left edge, full image height
+      public BrepFace Face;    // trimmed when the picture is cropped
     }
 
     protected override Result RunCommand(RhinoDoc doc, RunMode mode)
@@ -101,10 +104,35 @@ namespace RhinoOutline
         xf.M10 = px.Y; xf.M11 = py.Y; xf.M12 = normal.Y; xf.M13 = topLeft.Y;
         xf.M20 = px.Z; xf.M21 = py.Z; xf.M22 = normal.Z; xf.M23 = topLeft.Z;
 
-        var engine = new OutlineEngine(image);
-        OutlineCommand.Compute(engine, options, xf, px.Length, out List<Curve> trace, out List<Curve> outline);
-
         string name = string.IsNullOrEmpty(obj.Attributes.Name) ? Path.GetFileNameWithoutExtension(frame.ImagePath) : obj.Attributes.Name;
+
+        // A cropped picture: only the shape inside the trim loops counts, and the curves are cut
+        // back to the exact trim edge afterwards.
+        ClipRegion clip = null;
+        List<Curve> outerLoops = null, innerLoops = null;
+        if (!frame.Face.IsSurface)
+        {
+          if (!xf.TryGetInverse(out Transform toPixels) || !CropLoops(frame.Face, out outerLoops, out innerLoops))
+          {
+            RhinoApp.WriteLine($"OutlinePicture: skipped {name}, its crop boundary could not be read.");
+            continue;
+          }
+          clip = new ClipRegion();
+          foreach (Curve loop in outerLoops.Concat(innerLoops))
+            clip.Polygons.Add(PixelPolygon(loop, toPixels));
+        }
+
+        var engine = new OutlineEngine(image);
+        options.Core.Clip = clip;
+        OutlineCommand.Compute(engine, options, xf, px.Length, out List<Curve> trace, out List<Curve> outline);
+        options.Core.Clip = null;
+        if (clip != null)
+        {
+          var plane = new Plane(frame.Origin, frame.Right, frame.Up);
+          trace = ClipToCrop(trace, outerLoops[0], innerLoops, plane, doc.ModelAbsoluteTolerance);
+          outline = ClipToCrop(outline, outerLoops[0], innerLoops, plane, doc.ModelAbsoluteTolerance);
+        }
+
         if (options.Output != OutputKind.Outline)
         {
           var attr = new ObjectAttributes { LayerIndex = OutlineCommand.Layer(doc, OutlineCommand.TraceLayer, Color.FromArgb(90, 90, 90)), Name = name + " trace" };
@@ -135,10 +163,82 @@ namespace RhinoOutline
       return done > 0 ? Result.Success : Result.Nothing;
     }
 
+    /// <summary>The trim loops of a cropped picture in world space: the outer boundary and any holes.</summary>
+    static bool CropLoops(BrepFace face, out List<Curve> outer, out List<Curve> inner)
+    {
+      outer = new List<Curve>();
+      inner = new List<Curve>();
+      foreach (BrepLoop loop in face.Loops)
+      {
+        Curve c = loop.To3dCurve();
+        if (c == null || !c.IsClosed)
+          return false;
+        (loop.LoopType == BrepLoopType.Outer ? outer : inner).Add(c);
+      }
+      return outer.Count == 1;
+    }
+
+    /// <summary>A crop loop as a polygon in image space (pixels, y down) for the pixel mask.</summary>
+    static Vec2[] PixelPolygon(Curve loop, Transform toPixels)
+    {
+      Curve c = loop.DuplicateCurve();
+      c.Transform(toPixels);
+      var pts = new List<Point3d>();
+      if (c.TryGetPolyline(out Polyline polyline))
+        pts.AddRange(polyline);
+      else
+      {
+        PolylineCurve approx = c.ToPolyline(0.05, 0.05, 0.0, 0.0);
+        if (approx != null)
+          for (int i = 0; i < approx.PointCount; i++)
+            pts.Add(approx.Point(i));
+        else
+          pts.AddRange(c.DivideByCount(400, true).Select(t => c.PointAt(t)));
+      }
+      return pts.Select(p => new Vec2(p.X, p.Y)).ToArray();
+    }
+
     /// <summary>
-    /// Finds the image of a picture frame and where it sits. Works for any planar, untrimmed
-    /// single face object whose material has a bitmap texture, so moved, rotated, scaled and
-    /// embedded pictures all work.
+    /// Cuts closed curves on the picture back to its visible part. Each piece runs the way its
+    /// curve did, except a piece inside another one (a crop hole within the shape), which runs the
+    /// other way like any hole. A curve whose cut fails is kept as it is: the pixel mask already
+    /// keeps it within a pixel of the crop edge.
+    /// </summary>
+    static List<Curve> ClipToCrop(List<Curve> curves, Curve outer, List<Curve> inner, Plane plane, double tolerance)
+    {
+      var result = new List<Curve>();
+      foreach (Curve c in curves)
+      {
+        CurveOrientation want = c.ClosedCurveOrientation(plane.ZAxis);
+        Curve[] pieces = Curve.CreateBooleanIntersection(c, outer, tolerance);
+        if (pieces == null || pieces.Length == 0)
+        {
+          // Empty also means the curve lies outside the crop, in the one pixel border.
+          PointContainment where = outer.Contains(c.PointAtStart, plane, tolerance);
+          if (pieces == null || where != PointContainment.Outside)
+            result.Add(c);
+          continue;
+        }
+        List<Curve> kept = pieces.ToList();
+        foreach (Curve hole in inner)
+          kept = kept.SelectMany(p => Curve.CreateBooleanDifference(p, hole, tolerance) ?? new[] { p }).ToList();
+        foreach (Curve p in kept)
+        {
+          int depth = kept.Count(q => !ReferenceEquals(q, p) && q.Contains(p.PointAtStart, plane, tolerance) == PointContainment.Inside);
+          CurveOrientation dir = depth % 2 == 0 ? want
+            : want == CurveOrientation.Clockwise ? CurveOrientation.CounterClockwise : CurveOrientation.Clockwise;
+          if (p.ClosedCurveOrientation(plane.ZAxis) != dir)
+            p.Reverse();
+          result.Add(p);
+        }
+      }
+      return result;
+    }
+
+    /// <summary>
+    /// Finds the image of a picture frame and where it sits. Works for any planar single face
+    /// object whose material has a bitmap texture, so moved, rotated, scaled, cropped (trimmed)
+    /// and embedded pictures all work.
     /// </summary>
     static bool TryGetFrame(RhinoDoc doc, RhinoObject obj, out PictureFrame frame, out string problem)
     {
@@ -167,10 +267,11 @@ namespace RhinoOutline
         return false;
       }
 
+      // A trimmed face keeps its untrimmed surface, and the image spans all of it.
       BrepFace face = brep.Faces[0];
-      if (!face.IsPlanar(doc.ModelAbsoluteTolerance) || !face.IsSurface)
+      if (!face.IsPlanar(doc.ModelAbsoluteTolerance))
       {
-        problem = "the picture is not flat or is trimmed";
+        problem = "the picture is not flat";
         return false;
       }
 
@@ -184,11 +285,17 @@ namespace RhinoOutline
         problem = "the picture frame is not a parallelogram";
         return false;
       }
+      if ((p10 - p00).IsTiny() || (p01 - p00).IsTiny())
+      {
+        problem = "the picture has no size";
+        return false;
+      }
 
       frame.ImagePath = found;
       frame.Origin = p00;
       frame.Right = p10 - p00;
       frame.Up = p01 - p00;
+      frame.Face = face;
       return true;
     }
   }

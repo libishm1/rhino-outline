@@ -32,6 +32,9 @@ namespace RhinoOutline.Core
 
     public bool KeepHoles;
 
+    /// <summary>Only the shape inside this region counts (the visible part of a cropped picture); null for all of it.</summary>
+    public ClipRegion Clip;
+
     public OutlineSettings Clone() => (OutlineSettings)MemberwiseClone();
   }
 
@@ -65,7 +68,8 @@ namespace RhinoOutline.Core
     public void Update(OutlineSettings s)
     {
       bool maskDirty = last == null || Mask == null
-        || s.Detect != last.Detect || s.Threshold != last.Threshold || s.Invert != last.Invert;
+        || s.Detect != last.Detect || s.Threshold != last.Threshold || s.Invert != last.Invert
+        || !ReferenceEquals(s.Clip, last.Clip);
       bool traceDirty = maskDirty || Trace == null
         || s.FilterSize != last.FilterSize || s.CornerRounding != last.CornerRounding
         || s.OptimizeCurves != last.OptimizeCurves || s.OptimizeTolerance != last.OptimizeTolerance
@@ -73,7 +77,14 @@ namespace RhinoOutline.Core
 
       var watch = Stopwatch.StartNew();
       if (maskDirty)
+      {
         Mask = ShapeMask.Build(image, s.Detect, s.Threshold, s.Invert);
+        if (s.Clip != null)
+        {
+          s.Clip.Apply(Mask.Mask);
+          Mask.Description += ", inside the crop";
+        }
+      }
       if (traceDirty)
       {
         var ps = new PotraceSettings
@@ -87,14 +98,15 @@ namespace RhinoOutline.Core
         Trace = Potrace.Trace(Mask.Mask, ps);
         TraceMilliseconds = watch.ElapsedMilliseconds;
         watch.Restart();
-        Triangulation = AlphaShape.Prepare(Trace.Paths);
-        AutoAlpha = AlphaShape.FindAutoAlpha(Triangulation);
+        // Nothing to outline, e.g. a crop that shows only background.
+        Triangulation = Trace.Paths.Count > 0 ? AlphaShape.Prepare(Trace.Paths) : null;
+        AutoAlpha = Triangulation != null ? AlphaShape.FindAutoAlpha(Triangulation) : 0;
       }
 
       double alpha = s.AlphaPixels > 0 ? s.AlphaPixels : AutoAlpha;
       if (traceDirty || alpha != AlphaUsed || s.KeepHoles != last.KeepHoles)
       {
-        Loops = AlphaShape.Extract(Triangulation, alpha, s.KeepHoles);
+        Loops = Triangulation != null ? AlphaShape.Extract(Triangulation, alpha, s.KeepHoles) : new List<OutlineLoop>();
         AlphaUsed = alpha;
         OutlineMilliseconds = watch.ElapsedMilliseconds;
       }

@@ -5,7 +5,7 @@ A Rhino 7 and Rhino 8 plug-in that turns a PNG or JPG into a closed outline curv
 * **`Outline`**: pick an image file and its outline appears in the model.
 * **`OutlinePicture`**: select pictures already in the model (made with Rhino's `Picture`
   command) and each gets its outline, lying on the picture whatever its position, rotation, size
-  or tilt.
+  or tilt. Cropped (trimmed) pictures are outlined from the part you can see.
 
 [![Rhino Outline demo (click for the full video)](docs/demo.gif)](https://github.com/libishm1/rhino-outline/releases/download/v1.0.0/rhino-outline-demo.mp4)
 
@@ -43,6 +43,12 @@ the downloaded file, right-click it, open *Properties* and tick *Unblock*.
 | `OutlinePicture` | Select one or more picture frames and press Enter. The outlines are drawn on the pictures. `Alpha`, `Holes` and `Output` can be set at the prompt; the other options come from `-Outline`. Embedded pictures work when the model was opened from a `.3dm`. |
 
 Images: PNG (with or without transparency), JPG, BMP, GIF and TIFF.
+
+**Cropped pictures.** A picture trimmed with `Trim` or `Split` (to show only part of the image)
+is outlined from its visible part: the shape outside the trim is ignored, the alpha shape only
+bridges what you can see, and where the shape runs into the trim edge the outline follows that
+edge exactly. A trim with a hole cuts the same hole out of the outline. A crop that shows only
+background gives no outline.
 
 The image is placed with its lower left corner at the world origin, sized from the resolution
 stored in the file (96 dpi if it has none) unless you set `Width`.
@@ -111,9 +117,24 @@ Rhino 7.38, the same `.rhp` (tree PNG, tree JPG, line art):
    the outline is a smooth PolyCurve and not a polyline.
 4. **Auto alpha**: background triangles are added in order of circumradius until the region is one
    piece connected through edges. The radius at that point is the alpha.
+5. **Crop** (`ClipRegion.cs`, `OutlinePictureCommand.cs`): for a trimmed picture the trim loops
+   are mapped into the image and only the mask pixels inside them (grown by one pixel) are kept,
+   so steps 2 to 4 see just the visible part. The curves are then cut back to the exact trim
+   loops with planar curve booleans.
 
 The core (`src/RhinoOutline.Core`) has no Rhino dependency. The plug-in (`src/RhinoOutline`)
 builds against RhinoCommon 7.0 for .NET Framework 4.8, which Rhino 8 also loads.
+
+## Changes
+
+**1.1.0**
+* `OutlinePicture` outlines cropped (trimmed) pictures from their visible part; before, they
+  were refused and the command waited for a new selection. Crops with holes, curved crops,
+  rotated and tilted pictures, `Holes=Yes` and `Output=Both` are covered.
+* A picture or crop that shows no shape gives no outline instead of an error.
+* Uncropped pictures and the `Outline` command give exactly the same curves as 1.0.0.
+
+**1.0.0**: first release, `Outline` and `OutlinePicture`.
 
 ## Where this came from, and what was fixed
 
