@@ -1,0 +1,44 @@
+Neural networks bundled with Rhino Outline AI
+=============================================
+
+The files in the "models" folder are pretrained neural networks in ONNX format. They are data
+that Rhino Outline loads with ONNX Runtime; they are not part of the Rhino Outline source code
+(GPL v2) and keep their own licences. They are unmodified copies of the files listed below.
+
+u2netp.onnx
+  Network:  U^2-Net (small), Qin et al., "U^2-Net: Going Deeper with Nested U-Structure for
+            Salient Object Detection", Pattern Recognition 2020.
+            https://github.com/xuebinqin/U-2-Net
+  Licence:  Apache License 2.0 (see Apache-2.0.txt)
+  ONNX file from rembg, https://github.com/danielgatis/rembg (MIT, Copyright (c) 2020 Daniel Gatis)
+            https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx
+  SHA-256:  309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8
+
+isnet-general-use.onnx
+  Network:  IS-Net (DIS), Qin et al., "Highly Accurate Dichotomous Image Segmentation",
+            ECCV 2022. https://github.com/xuebinqin/DIS
+  Licence:  Apache License 2.0 (see Apache-2.0.txt)
+  ONNX file from rembg (MIT, Copyright (c) 2020 Daniel Gatis)
+            https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx
+  SHA-256:  60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a
+
+mobile_sam_image_encoder.onnx, sam_mask_decoder_multi.onnx
+  Network:  MobileSAM, Zhang et al., "Faster Segment Anything: Towards Lightweight SAM for
+            Mobile Applications", 2023. https://github.com/ChaoningZhang/MobileSAM
+            The mask decoder is that of Segment Anything (Kirillov et al., Meta AI, 2023),
+            https://github.com/facebookresearch/segment-anything
+  Licence:  Apache License 2.0 (see Apache-2.0.txt)
+  ONNX files from https://huggingface.co/Acly/MobileSAM (MIT)
+  SHA-256:  580f5fb648ea1062c0aabc26217aed56921985f03f0cbbd852bba81d760cc749 (encoder)
+            8976b90a87ba50a6a72217a5ff994f7d25ce16f2229fcc1ed259e1294c622ffe (decoder)
+
+Downloaded on first use only (not bundled):
+
+BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx  (AIModel=Best)
+  Network:  BiRefNet, Zheng et al., "Bilateral Reference for High-Resolution Dichotomous Image
+            Segmentation", CAAI AIR 2024. https://github.com/ZhengPeng7/BiRefNet
+  Licence:  MIT
+  ONNX file from rembg
+
+ONNX Runtime (onnxruntime.dll, Microsoft.ML.OnnxRuntime.dll) is Copyright (c) Microsoft
+Corporation, MIT licence, see onnxruntime-LICENSE.txt and onnxruntime-ThirdPartyNotices.txt.

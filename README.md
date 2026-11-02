@@ -21,14 +21,24 @@ Under the hood the image is **vectorised** with Potrace (the "vector raster") an
 **alpha shape** of the traced curves gives the outline. Pieces that do not touch, such as loose
 leaves or the strokes of a drawing, are wrapped into one outline automatically.
 
-> **Branch `explore/segmentation` (experimental, not released).** Adds `Detect=Shadows`
-> (background removal that ignores cast shadows, no download), `Detect=AI` (salient object
-> networks: U²-Net small, IS-Net, BiRefNet lite) and the command `OutlineClick` (click on the
-> object in a picture; MobileSAM, a small Segment Anything model). The networks are downloaded
-> on first use. See [research/segmentation](research/segmentation) for the comparison of 19
-> method variants on rendered scenes with shadows and on real photos.
+## Two editions
+
+| | Rhino Outline (standard) | **Rhino Outline AI** |
+|---|---|---|
+| Version | [1.1.1](https://github.com/libishm1/rhino-outline/releases/tag/v1.1.1) (latest) | [1.2.0](https://github.com/libishm1/rhino-outline/releases/tag/v1.2.0-ai) |
+| For | Students, clip art, scans, product shots on a clean backdrop | Anyone outlining **photos**: shadows, rooms, walls, several objects |
+| Finds the shape by | Transparency, border colour or dark pixels | The same, plus `Detect=Shadows`, `Detect=AI` (neural networks) and `OutlineClick` (click on the object, Segment Anything) |
+| Download | 40 KB | 209 MB (networks included, works offline) |
+
+The AI edition runs three neural networks on the CPU with ONNX Runtime: **IS-Net** finds the
+main object automatically (`Detect=AI`, about 2 s per photo), **U²-Net small** is a fast
+alternative (`AIModel=Fast`), and **MobileSAM**, a small Segment Anything model, outlines the
+object you click (`OutlineClick`). How they were chosen, out of 19 methods tested on scenes with
+shadows and on real photos, is in [research/segmentation](research/segmentation).
 
 ## Install (students)
+
+The standard edition. For the AI edition see [below](#install-the-ai-edition).
 
 1. Download `RhinoOutline.rhp` (or `RhinoOutline.rhi`) from the
    [latest release](https://github.com/libishm1/rhino-outline/releases/latest).
@@ -41,13 +51,26 @@ leaves or the strokes of a drawing, are wrapped into one outline automatically.
 The same file works in **Rhino 7** (SR0 and later) and **Rhino 8** on Windows. If Windows blocks
 the downloaded file, right-click it, open *Properties* and tick *Unblock*.
 
+## Install the AI edition
+
+1. Download `RhinoOutline-AI-1.2.0.rhi` from the
+   [1.2.0 release](https://github.com/libishm1/rhino-outline/releases/tag/v1.2.0-ai) and
+   double-click it (or, once it is listed there, install *rhino-outline-ai* from Rhino's
+   `PackageManager` or food4Rhino). It replaces the standard edition: it is the same plug-in
+   with more in it, so uninstall one before installing the other.
+2. Restart Rhino, type `-Outline`, set `Detect=AI`, or select a picture with `OutlineClick`.
+
+Windows, Rhino 7 or 8, 64 bit. The networks run on the CPU; no GPU, account or internet
+connection is needed. `AIModel=Best` (BiRefNet lite, 214 MB, 15 to 30 s per photo) is not
+included and is downloaded the first time it is used, after asking.
+
 ## Use
 
 | You type | What happens |
 |---|---|
 | `Outline` | A file dialog opens. Pick an image and the outline is added, selected, on the layer **Outline**. |
 | `-Outline` | Type or paste a file path, then adjust the options below on the command line with a live preview. Press Enter to add the result. Options are remembered for the next `Outline`. |
-| `OutlineClick` | Select a picture, click on the object, press Enter. More clicks add to the object; `Larger` and `Smaller` switch between what the network sees under the click. *(explore/segmentation)* |
+| `OutlineClick` | *(AI edition)* Select a picture, click on the object, press Enter. More clicks add to the object; `Undo` removes the last click; `Larger` and `Smaller` switch between what the network sees under the click (a part, the object, the object with what it stands on). |
 | `OutlinePicture` | Select one or more picture frames and press Enter. The outlines are drawn on the pictures. `Alpha`, `Holes` and `Output` can be set at the prompt; the other options come from `-Outline`. Embedded pictures work when the model was opened from a `.3dm`. |
 
 Images: PNG (with or without transparency), JPG, BMP, GIF and TIFF.
@@ -69,8 +92,8 @@ stored in the file (96 dpi if it has none) unless you set `Width`.
 | `Transparency` | Opaque pixels | PNG with a transparent background |
 | `Background` | Pixels that differ from the border colour | PNG or JPG on a plain white (or any plain) background |
 | `Dark` | Dark pixels | Scans and sketches on paper that is not a flat colour |
-| `Shadows` | Pixels unlike the background, cast shadows excluded | Photos of objects on a plain or two-tone backdrop |
-| `AI` | A segmentation network decides (`AIModel`: `Fast`, `Accurate`, `Best`) | Photos in general |
+| `Shadows` | *(AI edition)* Pixels unlike the background, cast shadows excluded | Photos of objects on a plain or two-tone backdrop |
+| `AI` | *(AI edition)* A segmentation network decides (`AIModel`: `Fast`, `Accurate`, `Best`) | Photos in general |
 
 `Auto` uses `Transparency` when at least 0.1 % of the pixels are transparent, otherwise
 `Background` when 90 % of the image border is one colour, otherwise `Dark`. The command line
@@ -137,6 +160,17 @@ The core (`src/RhinoOutline.Core`) has no Rhino dependency. The plug-in (`src/Rh
 builds against RhinoCommon 7.0 for .NET Framework 4.8, which Rhino 8 also loads.
 
 ## Changes
+
+**1.2.0 AI edition** (separate download, not the student version)
+* `Detect=Shadows`: background removal that ignores cast shadows. A shadow darkens the surface
+  it falls on but keeps its colour; the background is modelled from the image border, including
+  a floor below a wall. No network needed.
+* `Detect=AI` with `AIModel=Accurate` (IS-Net, default), `Fast` (U²-Net small) or `Best`
+  (BiRefNet lite, downloaded on first use). `Threshold` cuts the network's probability.
+* `OutlineClick`: click on the object in a picture, MobileSAM finds it.
+* ONNX Runtime 1.20 (CPU) and the IS-Net, U²-Net small and MobileSAM networks are installed with
+  the plug-in. Tested in Rhino 7.38 and 8.30; the split and crop tests of 1.1.1 give the same
+  results.
 
 **1.1.1**
 * `OutlinePicture` follows the picture's texture placement. Pieces made by `Split` with

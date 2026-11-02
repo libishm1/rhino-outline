@@ -8,10 +8,10 @@
     <TargetExt>.rhp</TargetExt>
     <LangVersion>latest</LangVersion>
     <Version>1.2.0</Version>
-    <Title>RhinoOutline</Title>
+    <Title>RhinoOutline AI</Title>
     <Company>RhinoOutline contributors</Company>
-    <Product>RhinoOutline</Product>
-    <Description>Outline command: PNG or JPG image to traced curves and an alpha shape outline.</Description>
+    <Product>RhinoOutline AI</Product>
+    <Description>Rhino Outline AI: photo or image to an outline curve, with neural segmentation (IS-Net, U2-Net, MobileSAM), shadow removal, Potrace and alpha shapes.</Description>
     <Copyright>Copyright (C) 2026 RhinoOutline contributors. GPL v2.</Copyright>
     <NoWarn>NU1701</NoWarn>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>

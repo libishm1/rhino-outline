@@ -32,9 +32,10 @@ namespace RhinoOutline.Segmentation
   }
 
   /// <summary>
-  /// The network files are not shipped with the plug-in. Each is downloaded the first time it
-  /// is needed, after the user agrees, into %LOCALAPPDATA%\RhinoOutline\models, and checked
-  /// against its SHA-256.
+  /// The networks. The AI edition installs u2netp, IS-Net and MobileSAM in a "models" folder
+  /// next to the plug-in. A network that is not there (BiRefNet lite, or all of them in a build
+  /// without models) is downloaded the first time it is needed, after the user agrees, into
+  /// %LOCALAPPDATA%\RhinoOutline\models, and checked against its SHA-256.
   /// </summary>
   static class NeuralModels
   {
@@ -77,15 +78,26 @@ namespace RhinoOutline.Segmentation
       }
     }
 
+    /// <summary>Where downloaded networks go.</summary>
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RhinoOutline", "models");
 
-    /// <summary>Path of the downloaded file, downloading it first (with the user's consent) when
-    /// it is missing. Null when the user declines or the download fails.</summary>
+    /// <summary>Where the installer puts the bundled networks: "models" next to the plug-in.</summary>
+    public static string BundledFolder => Path.Combine(Path.GetDirectoryName(typeof(NeuralModels).Assembly.Location) ?? "", "models");
+
+    /// <summary>The bundled copy if there is one, else the download location (which may not exist yet).</summary>
+    public static string PathOf(ModelFile f)
+    {
+      string bundled = Path.Combine(BundledFolder, f.Name);
+      return File.Exists(bundled) ? bundled : Path.Combine(Folder, f.Name);
+    }
+
+    /// <summary>Path of the first file, downloading the missing ones first (with the user's
+    /// consent). Null when the user declines or the download fails.</summary>
     public static string Ensure(params ModelFile[] files)
     {
       long missing = 0;
       foreach (ModelFile f in files)
-        if (!File.Exists(Path.Combine(Folder, f.Name)))
+        if (!File.Exists(PathOf(f)))
           missing += f.Bytes;
       if (missing > 0)
       {
@@ -98,15 +110,14 @@ namespace RhinoOutline.Segmentation
         Directory.CreateDirectory(Folder);
         foreach (ModelFile f in files)
         {
-          string path = Path.Combine(Folder, f.Name);
-          if (!File.Exists(path) && !Download(f, path))
+          if (File.Exists(PathOf(f)))
+            continue;
+          if (!Download(f, Path.Combine(Folder, f.Name)))
             return null;
         }
       }
-      return Path.Combine(Folder, files[0].Name);
+      return PathOf(files[0]);
     }
-
-    public static string PathOf(ModelFile f) => Path.Combine(Folder, f.Name);
 
     static bool Download(ModelFile f, string path)
     {

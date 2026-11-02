@@ -1,6 +1,7 @@
 # Background removal and segmentation for Rhino Outline
 
-Branch `explore/segmentation`, experimental, not released.
+Released as **Rhino Outline AI 1.2.0** (tag `v1.2.0-ai`, branch `explore/segmentation`),
+a separate edition from the standard plug-in.
 
 Rhino Outline 1.1 finds the shape by transparency, by the border colour or by dark pixels.
 That works for clip art, scans and product shots on a clean backdrop. It fails on photos:
@@ -11,17 +12,27 @@ and adds the useful ones to the plug-in.
 
 ## Result
 
-| | What it is | Download | Time per image (CPU) | Use it for |
+| | What it is | Network | Time per image (CPU) | Use it for |
 |---|---|---|---|---|
 | `Detect=Shadows` | Classical: background subtraction that ignores cast shadows | none | 0.5 to 1.5 s | Objects on a plain or two-tone backdrop, with shadows |
-| `Detect=AI`, `AIModel=Accurate` | IS-Net (DIS) salient object network | 171 MB once | about 2 s | Photos in general |
-| `Detect=AI`, `AIModel=Best` | BiRefNet lite | 214 MB once | 15 to 30 s | When `Accurate` picks the wrong thing |
-| `Detect=AI`, `AIModel=Fast` | U²-Net small (u2netp) | 4.4 MB once | 0.3 s | Quick tries, simple photos |
-| `OutlineClick` | MobileSAM (small Segment Anything): click on the object | 43 MB once | about 1 s per click | Cluttered photos, several objects, when you want a specific one |
+| `Detect=AI`, `AIModel=Accurate` | IS-Net (DIS) salient object network | included (171 MB) | about 2 s | Photos in general |
+| `Detect=AI`, `AIModel=Best` | BiRefNet lite | 214 MB on first use | 15 to 30 s | When `Accurate` picks the wrong thing |
+| `Detect=AI`, `AIModel=Fast` | U²-Net small (u2netp) | included (4.4 MB) | 0.3 s | Quick tries, simple photos |
+| `OutlineClick` | MobileSAM (small Segment Anything): click on the object | included (43 MB) | about 1 s per click | Cluttered photos, several objects, when you want a specific one |
 
-The networks are downloaded the first time they are used, after the plug-in asks, into
-`%LOCALAPPDATA%\RhinoOutline\models`, and are checked against their SHA-256. They are not part
-of the plug-in. ONNX Runtime (12.5 MB, MIT licence) is shipped next to the `.rhp`.
+The AI edition installs IS-Net, u2netp and MobileSAM (220 MB, 209 MB zipped) in a `models`
+folder next to the `.rhp`, so it works offline from the start. BiRefNet lite is downloaded the
+first time `AIModel=Best` is used, after the plug-in asks, into
+`%LOCALAPPDATA%\RhinoOutline\models`, and checked against its SHA-256. ONNX Runtime (12.5 MB,
+MIT licence) is installed next to the `.rhp`.
+
+**Which networks to install.** IS-Net is the default because it is the best result per second
+(0.955 at 2 s); BiRefNet lite is better (0.976) but 7 to 15 times slower on a CPU and barely
+compresses, so it stays an optional download. MobileSAM gives the click workflow for 43 MB, and
+u2netp costs only 4.4 MB. 8-bit quantization (ONNX Runtime dynamic quantization) was tried to
+make the installer smaller: it cut IS-Net to 46 MB and MobileSAM to 16 MB, but the scores fell
+(IS-Net 0.955 to 0.753, MobileSAM click 0.957 to 0.834, u2netp 0.850 to 0.081) and the CPU
+time went up (IS-Net 2.2 s to 4.1 s), so the release keeps the original 32-bit networks.
 
 Tested in Rhino 8.30 and Rhino 7.38 (same build): `Detect=AI` with `Outline` and
 `OutlinePicture`, `Detect=Shadows`, and `OutlineClick` with `Larger`, all give closed, valid
@@ -143,13 +154,12 @@ dot is the click.
   [`OutlineClickCommand.cs`](../../src/RhinoOutline/OutlineClickCommand.cs). The C# `Shadows`
   mask matches the Python prototype (mean IoU 0.997 between the two).
 
-Open points before a release:
+Known limits:
 
-* The `.rhi` grows from 40 KB to 4.5 MB (ONNX Runtime). Rhino on macOS would need the
-  macOS runtime and is untested.
-* The model download needs internet access on first use; schools behind a proxy may need the
-  files copied into `%LOCALAPPDATA%\RhinoOutline\models` by hand.
-* `Best` blocks Rhino for 15 to 30 s with no progress bar.
+* Windows only. Rhino on macOS would need the macOS ONNX Runtime and is untested.
+* The installer is 209 MB.
+* `Best` blocks Rhino for 15 to 30 s with no progress bar, and needs internet access the first
+  time.
 
 ## Licences
 
