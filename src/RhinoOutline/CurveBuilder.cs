@@ -1,6 +1,7 @@
 // RhinoOutline - image to outline curves for Rhino.
 // Copyright (C) 2026 RhinoOutline contributors. Licensed under the GNU GPL v2, see LICENSE.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Rhino.Geometry;
@@ -52,8 +53,18 @@ namespace RhinoOutline
     }
 
     /// <summary>One closed outline curve for a loop, in image space.</summary>
-    public static Curve LoopCurve(OutlineLoop loop, TriangulatedTrace tt, IList<Curve> pathCurves)
+    /// <param name="toCurveParam">
+    /// Maps (path, path parameter) to a parameter of <paramref name="pathCurves"/>[path]. Null when
+    /// the curves are parameterized like the paths (segment k spans [k, k+1]).
+    /// </param>
+    public static Curve LoopCurve(OutlineLoop loop, TriangulatedTrace tt, IList<Curve> pathCurves, Func<int, double, double> toCurveParam = null,
+                                  double joinTolerance = PixelTolerance)
     {
+      double Param(int sample) => toCurveParam == null
+        ? tt.ParamOf[sample]
+        : toCurveParam(tt.PathOf[sample], tt.ParamOf[sample]);
+      Point3d SamplePoint(int sample) => pathCurves[tt.PathOf[sample]].PointAt(Param(sample));
+
       var pieces = new List<Curve>();
       foreach (OutlinePiece piece in loop.Pieces)
       {
@@ -62,20 +73,20 @@ namespace RhinoOutline
 
         if (piece.IsBridge)
         {
-          Point3d a = SamplePoint(tt, pathCurves, piece.FromVertex);
-          Point3d b = SamplePoint(tt, pathCurves, piece.ToVertex);
+          Point3d a = SamplePoint(piece.FromVertex);
+          Point3d b = SamplePoint(piece.ToVertex);
           if (a.DistanceTo(b) > 1e-9)
             pieces.Add(new LineCurve(a, b));
           continue;
         }
 
         Curve path = pathCurves[piece.Path];
-        double from = tt.ParamOf[piece.FromVertex];
-        double to = tt.ParamOf[piece.ToVertex];
+        double from = Param(piece.FromVertex);
+        double to = Param(piece.ToVertex);
         Curve run = piece.Forward ? path.Trim(from, to) : path.Trim(to, from);
         if (run == null)
         {
-          pieces.Add(new LineCurve(SamplePoint(tt, pathCurves, piece.FromVertex), SamplePoint(tt, pathCurves, piece.ToVertex)));
+          pieces.Add(new LineCurve(SamplePoint(piece.FromVertex), SamplePoint(piece.ToVertex)));
           continue;
         }
         if (!piece.Forward)
@@ -83,7 +94,7 @@ namespace RhinoOutline
         pieces.Add(run);
       }
 
-      Curve[] joined = Curve.JoinCurves(pieces, PixelTolerance);
+      Curve[] joined = Curve.JoinCurves(pieces, joinTolerance);
       if (joined != null && joined.Length == 1 && joined[0].IsClosed)
         return joined[0];
 
@@ -92,9 +103,6 @@ namespace RhinoOutline
       pts.Add(pts[0]);
       return new PolylineCurve(pts);
     }
-
-    static Point3d SamplePoint(TriangulatedTrace tt, IList<Curve> pathCurves, int sample) =>
-      pathCurves[tt.PathOf[sample]].PointAt(tt.ParamOf[sample]);
 
     static Point3d P(Vec2 v) => new Point3d(v.X, v.Y, 0);
   }

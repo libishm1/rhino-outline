@@ -74,6 +74,12 @@ namespace RhinoOutline.Core
   {
     public readonly List<TraceSegment> Segments = new List<TraceSegment>();
 
+    /// <summary>
+    /// An open path (a stroke, such as an open curve given to OutlineCurve): it runs from the start
+    /// of the first segment to the end of the last one and bounds no area.
+    /// </summary>
+    public bool IsOpen;
+
     /// <summary>True when the path bounds a hole (background enclosed by the shape).</summary>
     public bool IsHole;
 

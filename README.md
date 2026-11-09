@@ -47,6 +47,7 @@ the downloaded file, right-click it, open *Properties* and tick *Unblock*.
 |---|---|
 | `Outline` | A file dialog opens. Pick an image and the outline is added, selected, on the layer **Outline**. |
 | `-Outline` | Type or paste a file path, then adjust the options below on the command line with a live preview. Press Enter to add the result. Options are remembered for the next `Outline`. |
+| `OutlineCurve` | Select curves (closed, open, or both) and press Enter. They are projected onto the active construction plane and wrapped into one closed outline on that plane. Only the outline is added: the projected copies stay in memory. `Alpha` and `Holes` can be set at the prompt. |
 | `OutlinePicture` | Select one or more picture frames and press Enter. The outlines are drawn on the pictures. `Alpha`, `Holes` and `Output` can be set at the prompt; the other options come from `-Outline`. Embedded pictures work when the model was opened from a `.3dm`. |
 
 Images: PNG (with or without transparency), JPG, BMP, GIF and TIFF.
@@ -113,6 +114,14 @@ Rhino 7.38, the same `.rhp` (tree PNG, tree JPG, line art):
 
 ![Rhino 7](docs/rhino7-test.png)
 
+**Outlines of curves (`OutlineCurve`).** Closed curves count as filled shapes and open curves
+as strokes; the outline wraps all of them, bridging the gaps between them with straight lines and
+following the curves themselves exactly elsewhere. Curves are first projected onto the active
+CPlane (only in memory), so 3D curves and curves at different heights work, and the outline lies
+on the CPlane. `Alpha=0` (automatic) uses the smallest radius that gives one outline enclosing
+every curve; a larger `Alpha` gives wider, smoother bridges. A curve perpendicular to the CPlane
+is left out, and a single straight line encloses nothing, so it gives no outline.
+
 ## How it works
 
 1. **Mask** (`RasterImage.cs`): every pixel becomes shape or background, see *Detect*.
@@ -134,6 +143,15 @@ The core (`src/RhinoOutline.Core`) has no Rhino dependency. The plug-in (`src/Rh
 builds against RhinoCommon 7.0 for .NET Framework 4.8, which Rhino 8 also loads.
 
 ## Changes
+
+**Unreleased**
+* `OutlineCurve`: the outline of curves in the model, projected onto the CPlane (only the
+  outline is added). Tested in Rhino 7.38 and 8.30: closed curves with gaps, open strokes, 3D
+  curves, nested curves with `Holes=Yes`, a tilted CPlane, a curve perpendicular to the CPlane,
+  a manual `Alpha` and a single line.
+* Outlines no longer touch themselves where an enclosed gap meets the boundary at a single point;
+  such a loop is now split there. Of 17 test images, two photos had this and lose a small
+  self-touching notch; the other outlines are unchanged.
 
 **1.1.1**
 * `OutlinePicture` follows the picture's texture placement. Pieces made by `Split` with
