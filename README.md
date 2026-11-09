@@ -3,6 +3,8 @@
 A Rhino 7 and Rhino 8 plug-in that turns a PNG or JPG into a closed outline curve.
 
 * **`Outline`**: pick an image file and its outline appears in the model.
+* **`OutlineCurve`**: select curves in the model (a CAD plan, a sketch, separate shapes) and
+  get one closed outline around them on the construction plane.
 * **`OutlinePicture`**: select pictures already in the model (made with Rhino's `Picture`
   command) and each gets its outline, lying on the picture whatever its position, rotation, size
   or tilt. Cropped (trimmed) pictures are outlined from the part you can see.
@@ -21,10 +23,10 @@ Under the hood the image is **vectorised** with Potrace (the "vector raster") an
 **alpha shape** of the traced curves gives the outline. Pieces that do not touch, such as loose
 leaves or the strokes of a drawing, are wrapped into one outline automatically.
 
-> **Rhino Outline AI 1.2.0** is a separate, larger edition for outlining **photos**: neural
+> **Rhino Outline AI 1.3.0** is a separate, larger edition for outlining **photos**: neural
 > segmentation (IS-Net), click-to-select with Segment Anything (MobileSAM) and shadow removal,
 > running offline on the CPU. 209 MB.
-> [Download](https://github.com/libishm1/rhino-outline/releases/tag/v1.2.0-ai) ·
+> [Download](https://github.com/libishm1/rhino-outline/releases/tag/v1.3.0-ai) ·
 > [How the networks were chosen](https://github.com/libishm1/rhino-outline/tree/explore/segmentation/research/segmentation).
 > The standard edition below stays the one for students.
 
@@ -122,6 +124,8 @@ on the CPlane. `Alpha=0` (automatic) uses the smallest radius that gives one out
 every curve; a larger `Alpha` gives wider, smoother bridges. A curve perpendicular to the CPlane
 is left out, and a single straight line encloses nothing, so it gives no outline.
 
+![OutlineCurve: black input curves, red outline](docs/outline-curve.png)
+
 ## How it works
 
 1. **Mask** (`RasterImage.cs`): every pixel becomes shape or background, see *Detect*.
@@ -144,7 +148,7 @@ builds against RhinoCommon 7.0 for .NET Framework 4.8, which Rhino 8 also loads.
 
 ## Changes
 
-**Unreleased**
+**1.3.0**
 * `OutlineCurve`: the outline of curves in the model, projected onto the CPlane (only the
   outline is added). Tested in Rhino 7.38 and 8.30: closed curves with gaps, open strokes, 3D
   curves, nested curves with `Holes=Yes`, a tilted CPlane, a curve perpendicular to the CPlane,
