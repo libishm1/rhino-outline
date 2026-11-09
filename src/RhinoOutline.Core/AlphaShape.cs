@@ -40,6 +40,9 @@ namespace RhinoOutline.Core
     /// <summary>Number of samples kept on each path.</summary>
     public int[] PathSampleCount;
 
+    /// <summary>Per path: open (a stroke) rather than closed.</summary>
+    public bool[] PathOpen;
+
     public Delaunay Delaunay;
 
     /// <summary>Per triangle: the centroid is inside the shape.</summary>
@@ -95,8 +98,9 @@ namespace RhinoOutline.Core
     readonly List<int>[] rows;
     readonly double y0;
 
-    // Samples of one path are consecutive; each path closes back on its first sample.
-    public EvenOdd(double[] coords, List<int> pathOf)
+    // Samples of one path are consecutive; each closed path closes back on its first sample.
+    // Open paths bound no area and are left out.
+    public EvenOdd(double[] coords, List<int> pathOf, bool[] open = null)
     {
       c = coords;
       int n = pathOf.Count;
@@ -115,7 +119,7 @@ namespace RhinoOutline.Core
         bool last = i + 1 == n || pathOf[i + 1] != pathOf[i];
         int j = last ? first : i + 1;
         if (last) first = i + 1;
-        if (i == j) continue;
+        if (i == j || (open != null && open[pathOf[i]])) continue;
         int e = edges.Count / 2;
         edges.Add(i);
         edges.Add(j);
@@ -197,8 +201,26 @@ namespace RhinoOutline.Core
             paramOf.Add(k + t);
           }
         }
+        // An open path also gets its end point (a closed path ends where it starts).
+        if (paths[pi].IsOpen && segments.Count > 0)
+        {
+          Vec2 p = segments[segments.Count - 1].PointAt(1.0);
+          long qx = (long)Math.Round(p.X * Snap);
+          long qy = (long)Math.Round(p.Y * Snap);
+          if (seen.Add((qx << 32) ^ (qy & 0xffffffffL)))
+          {
+            xs.Add(qx / Snap);
+            ys.Add(qy / Snap);
+            pathOf.Add(pi);
+            indexOnPath.Add(index++);
+            paramOf.Add(segments.Count);
+          }
+        }
         pathCount[pi] = index;
       }
+      var pathOpen = new bool[paths.Count];
+      for (int pi = 0; pi < paths.Count; pi++)
+        pathOpen[pi] = paths[pi].IsOpen;
 
       var coords = new double[xs.Count * 2];
       for (int i = 0; i < xs.Count; i++)
@@ -212,7 +234,7 @@ namespace RhinoOutline.Core
       int nt = tri.Length / 3;
       var inside = new bool[nt];
       var radius = new double[nt];
-      var parity = new EvenOdd(coords, pathOf);
+      var parity = new EvenOdd(coords, pathOf, pathOpen);
       for (int t = 0; t < nt; t++)
       {
         int a = tri[3 * t], b = tri[3 * t + 1], c = tri[3 * t + 2];
@@ -235,11 +257,40 @@ namespace RhinoOutline.Core
         IndexOnPath = indexOnPath.ToArray(),
         ParamOf = paramOf.ToArray(),
         PathSampleCount = pathCount,
+        PathOpen = pathOpen,
         Delaunay = delaunay,
         Inside = inside,
         Radius = radius,
         SampleSpacing = spacing,
       };
+    }
+
+    /// <summary>
+    /// Stops slivers from counting as bridgeable background. Samples along a straight stretch are
+    /// almost collinear (they are only snapped apart), so the triangles between them have no width
+    /// but can have a small circumradius. Around a traced image they only hug a filled boundary;
+    /// along an open stroke they would turn the stroke into a zero-width band that the outline
+    /// runs out and back along, and along any straight curve they make the outline hop between
+    /// samples. A background triangle thinner than <paramref name="minHeight"/> is never kept.
+    /// Used for curves.
+    /// </summary>
+    public static void IgnorePathSlivers(TriangulatedTrace tt, double minHeight = 0.05)
+    {
+      int[] tri = tt.Delaunay.Triangles;
+      double[] c = tt.Coords;
+      for (int t = 0; t < tri.Length / 3; t++)
+      {
+        if (tt.Inside[t])
+          continue;
+        int a = tri[3 * t], b = tri[3 * t + 1], d = tri[3 * t + 2];
+        double abx = c[2 * b] - c[2 * a], aby = c[2 * b + 1] - c[2 * a + 1];
+        double adx = c[2 * d] - c[2 * a], ady = c[2 * d + 1] - c[2 * a + 1];
+        double bdx = c[2 * d] - c[2 * b], bdy = c[2 * d + 1] - c[2 * b + 1];
+        double longest = Math.Sqrt(Math.Max(abx * abx + aby * aby, Math.Max(adx * adx + ady * ady, bdx * bdx + bdy * bdy)));
+        double height = Math.Abs(abx * ady - aby * adx) / Math.Max(longest, 1e-12);
+        if (height < minHeight)
+          tt.Radius[t] = double.PositiveInfinity;
+      }
     }
 
     /// <summary>
@@ -294,6 +345,81 @@ namespace RhinoOutline.Core
       return order.Count > 0 ? tt.Radius[order[order.Count - 1]] : 0;
     }
 
+    /// <summary>
+    /// Auto alpha for curves (paths that are walls, see <see cref="Extract"/>): the smallest alpha
+    /// for which the filled region the outline is drawn from is one piece (triangles joined
+    /// through edges) and has every sample of every path as a corner, so every curve is wrapped,
+    /// strokes included. Found by bisection over the triangle radii.
+    /// </summary>
+    public static double FindAutoAlphaForCurves(TriangulatedTrace tt)
+    {
+      int nt = tt.Radius.Length;
+      if (nt == 0)
+        return 0;
+      var radii = new List<double> { 0 };
+      for (int t = 0; t < nt; t++)
+      {
+        if (!tt.Inside[t] && !double.IsInfinity(tt.Radius[t]))
+          radii.Add(tt.Radius[t]);
+      }
+      radii.Sort();
+
+      bool Wraps(double alpha)
+      {
+        bool[] filled = Filled(tt, alpha);
+        int[] tri = tt.Delaunay.Triangles;
+        int[] he = tt.Delaunay.Halfedges;
+        var corner = new bool[tt.PointCount];
+        int first = -1;
+        for (int t = 0; t < nt; t++)
+        {
+          if (!filled[t]) continue;
+          if (first < 0) first = t;
+          corner[tri[3 * t]] = corner[tri[3 * t + 1]] = corner[tri[3 * t + 2]] = true;
+        }
+        if (first < 0) return false;
+        foreach (bool c in corner)
+          if (!c) return false;
+        // one piece through edges
+        var seen = new bool[nt];
+        var queue = new Queue<int>();
+        seen[first] = true;
+        queue.Enqueue(first);
+        int reached = 1;
+        while (queue.Count > 0)
+        {
+          int t = queue.Dequeue();
+          for (int e = 3 * t; e < 3 * t + 3; e++)
+          {
+            int twin = he[e];
+            if (twin < 0) continue;
+            int u = twin / 3;
+            if (!filled[u] || seen[u]) continue;
+            seen[u] = true;
+            reached++;
+            queue.Enqueue(u);
+          }
+        }
+        int total = 0;
+        foreach (bool f in filled) if (f) total++;
+        return reached == total;
+      }
+
+      // Bisection for the first radius that wraps. The upper end always wraps, so the result
+      // does too; the test is not strictly monotonic in rare cases, where the result may be a
+      // little larger than the smallest radius that wraps.
+      int lo = 0, hi = radii.Count - 1;
+      if (!Wraps(radii[hi]))
+        return radii[hi];
+      while (lo < hi)
+      {
+        int mid = (lo + hi) / 2;
+        if (Wraps(radii[mid])) hi = mid;
+        else lo = mid + 1;
+      }
+      return radii[lo];
+    }
+
     static int JoinNeighbours(int t, int[] he, bool[] kept, int[] parent)
     {
       int merged = 0;
@@ -324,14 +450,93 @@ namespace RhinoOutline.Core
     /// <summary>Boundary loops of the alpha shape, largest first.</summary>
     /// <param name="alpha">Bridging radius in pixels. 0 bridges nothing.</param>
     /// <param name="includeHoles">Also return the loops around enclosed background.</param>
-    public static List<OutlineLoop> Extract(TriangulatedTrace tt, double alpha, bool includeHoles)
+    /// <param name="pathsAreWalls">
+    /// The paths are curves the outside cannot cross (OutlineCurve). Open paths enclose no area,
+    /// so without this the outside can reach into the shape between two neighbouring samples of
+    /// a stroke and cut a hairline notch into the outline. With it, background that the outside
+    /// cannot reach without crossing a path counts as enclosed: filled, or a hole.
+    /// </param>
+    public static List<OutlineLoop> Extract(TriangulatedTrace tt, double alpha, bool includeHoles, bool pathsAreWalls = false)
     {
       int[] tri = tt.Delaunay.Triangles;
-      int[] he = tt.Delaunay.Halfedges;
       int nt = tri.Length / 3;
       var kept = new bool[nt];
       for (int t = 0; t < nt; t++)
         kept[t] = tt.Inside[t] || tt.Radius[t] <= alpha;
+      if (!pathsAreWalls)
+        return Loops(tt, kept, includeHoles, true);
+
+      bool[] outside = Outside(tt, kept);
+      // Outer outlines: the boundary of everything the outside does not reach.
+      var filled = new bool[nt];
+      for (int t = 0; t < nt; t++)
+        filled[t] = !outside[t];
+      List<OutlineLoop> loops = Loops(tt, filled, false, true);
+      if (includeHoles)
+      {
+        // Holes: the enclosed background, as the holes of the region "kept or outside".
+        var open = new bool[nt];
+        for (int t = 0; t < nt; t++)
+          open[t] = kept[t] || outside[t];
+        loops.AddRange(Loops(tt, open, true, false));
+        loops.Sort((a, b) => Math.Abs(b.SignedArea).CompareTo(Math.Abs(a.SignedArea)));
+      }
+      return loops;
+    }
+
+    // Background reached from the convex hull without crossing a path (paths are walls).
+    static bool[] Outside(TriangulatedTrace tt, bool[] kept)
+    {
+      int[] tri = tt.Delaunay.Triangles;
+      int[] he = tt.Delaunay.Halfedges;
+      int nt = tri.Length / 3;
+      var outside = new bool[nt];
+      var queue = new Queue<int>();
+      // A hull edge that is itself a path step is a wall too: the outside is beyond it.
+      for (int e = 0; e < tri.Length; e++)
+      {
+        int t = e / 3;
+        if (he[e] < 0 && !kept[t] && !outside[t] && StepKind(tt, tri[e], tri[Next(e)]) == 0)
+        {
+          outside[t] = true;
+          queue.Enqueue(t);
+        }
+      }
+      while (queue.Count > 0)
+      {
+        int t = queue.Dequeue();
+        for (int e = 3 * t; e < 3 * t + 3; e++)
+        {
+          int twin = he[e];
+          if (twin < 0) continue;
+          int u = twin / 3;
+          if (kept[u] || outside[u] || StepKind(tt, tri[e], tri[Next(e)]) != 0) continue;
+          outside[u] = true;
+          queue.Enqueue(u);
+        }
+      }
+      return outside;
+    }
+
+    // Kept triangles plus the background enclosed by them and the paths.
+    static bool[] Filled(TriangulatedTrace tt, double alpha)
+    {
+      int nt = tt.Radius.Length;
+      var kept = new bool[nt];
+      for (int t = 0; t < nt; t++)
+        kept[t] = tt.Inside[t] || tt.Radius[t] <= alpha;
+      bool[] outside = Outside(tt, kept);
+      var filled = new bool[nt];
+      for (int t = 0; t < nt; t++)
+        filled[t] = !outside[t];
+      return filled;
+    }
+
+    // Boundary loops of the region made of the kept triangles.
+    static List<OutlineLoop> Loops(TriangulatedTrace tt, bool[] kept, bool holes, bool outer)
+    {
+      int[] tri = tt.Delaunay.Triangles;
+      int[] he = tt.Delaunay.Halfedges;
 
       bool IsBoundary(int e) => kept[e / 3] && (he[e] < 0 || !kept[he[e] / 3]);
 
@@ -356,15 +561,19 @@ namespace RhinoOutline.Core
           e = next;
         } while (e != start && !used[e]);
 
-        if (vertices.Count < 3)
-          continue;
-
-        var loop = new OutlineLoop { Vertices = vertices.ToArray() };
-        loop.SignedArea = SignedArea(tt.Coords, loop.Vertices);
-        if (loop.IsHole && !includeHoles)
-          continue;
-        loop.Pieces = SplitIntoPieces(tt, loop.Vertices);
-        loops.Add(loop);
+        // Where a gap in the region touches its boundary at a single sample (a pinch), the walk
+        // passes that sample twice; split it there so every loop is simple.
+        foreach (int[] cycle in SimpleCycles(vertices))
+        {
+          if (cycle.Length < 3)
+            continue;
+          var loop = new OutlineLoop { Vertices = cycle };
+          loop.SignedArea = SignedArea(tt.Coords, loop.Vertices);
+          if (loop.SignedArea == 0 || loop.IsHole && !holes || !loop.IsHole && !outer)
+            continue;
+          loop.Pieces = SplitIntoPieces(tt, loop.Vertices);
+          loops.Add(loop);
+        }
       }
 
       loops.Sort((a, b) => Math.Abs(b.SignedArea).CompareTo(Math.Abs(a.SignedArea)));
@@ -372,6 +581,30 @@ namespace RhinoOutline.Core
     }
 
     static int Next(int e) => e % 3 == 2 ? e - 2 : e + 1;
+
+    // Splits a closed walk that may pass a vertex more than once into simple cycles.
+    static List<int[]> SimpleCycles(List<int> walk)
+    {
+      var cycles = new List<int[]>();
+      var stack = new List<int>(walk.Count);
+      var at = new Dictionary<int, int>();
+      foreach (int v in walk)
+      {
+        if (at.TryGetValue(v, out int i))
+        {
+          // stack[i..] is a closed cycle through v; v itself stays for the rest of the walk
+          cycles.Add(stack.GetRange(i, stack.Count - i).ToArray());
+          for (int k = i + 1; k < stack.Count; k++)
+            at.Remove(stack[k]);
+          stack.RemoveRange(i + 1, stack.Count - i - 1);
+          continue;
+        }
+        at[v] = stack.Count;
+        stack.Add(v);
+      }
+      cycles.Add(stack.ToArray());
+      return cycles;
+    }
 
     static double SignedArea(double[] coords, int[] loop)
     {
@@ -392,6 +625,8 @@ namespace RhinoOutline.Core
         return 0;
       int n = tt.PathSampleCount[p];
       int ia = tt.IndexOnPath[a], ib = tt.IndexOnPath[b];
+      if (tt.PathOpen != null && tt.PathOpen[p])
+        return ib == ia + 1 ? 1 : ia == ib + 1 ? -1 : 0;
       if (ib == (ia + 1) % n)
         return 1;
       if (ia == (ib + 1) % n)
@@ -418,7 +653,8 @@ namespace RhinoOutline.Core
           break;
         }
       }
-      if (allSame && kinds[0] != 0 && m == tt.PathSampleCount[tt.PathOf[v[0]]])
+      bool open = tt.PathOpen != null && tt.PathOpen[tt.PathOf[v[0]]];
+      if (allSame && kinds[0] != 0 && m == tt.PathSampleCount[tt.PathOf[v[0]]] && !open)
       {
         pieces.Add(new OutlinePiece
         {
