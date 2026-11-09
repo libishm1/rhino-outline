@@ -3,6 +3,8 @@
 A Rhino 7 and Rhino 8 plug-in that turns a PNG or JPG into a closed outline curve.
 
 * **`Outline`**: pick an image file and its outline appears in the model.
+* **`OutlineCurve`**: select curves in the model (a CAD plan, a sketch, separate shapes) and
+  get one closed outline around them on the construction plane.
 * **`OutlinePicture`**: select pictures already in the model (made with Rhino's `Picture`
   command) and each gets its outline, lying on the picture whatever its position, rotation, size
   or tilt. Cropped (trimmed) pictures are outlined from the part you can see.
@@ -25,7 +27,7 @@ leaves or the strokes of a drawing, are wrapped into one outline automatically.
 
 | | Rhino Outline (standard) | **Rhino Outline AI** |
 |---|---|---|
-| Version | [1.1.1](https://github.com/libishm1/rhino-outline/releases/tag/v1.1.1) (latest) | [1.2.0](https://github.com/libishm1/rhino-outline/releases/tag/v1.2.0-ai) |
+| Version | [1.3.0](https://github.com/libishm1/rhino-outline/releases/tag/v1.3.0) (latest) | [1.3.0](https://github.com/libishm1/rhino-outline/releases/tag/v1.3.0-ai) |
 | For | Students, clip art, scans, product shots on a clean backdrop | Anyone outlining **photos**: shadows, rooms, walls, several objects |
 | Finds the shape by | Transparency, border colour or dark pixels | The same, plus `Detect=Shadows`, `Detect=AI` (neural networks) and `OutlineClick` (click on the object, Segment Anything) |
 | Download | 40 KB | 209 MB `.rhi` with all networks, or 46 MB from the Rhino package manager (IS-Net downloaded on first use) |
@@ -54,8 +56,8 @@ the downloaded file, right-click it, open *Properties* and tick *Unblock*.
 ## Install the AI edition
 
 1. Either type `PackageManager` in Rhino and install **rhino-outline-ai**, or download
-   `RhinoOutline-AI-1.2.0.rhi` from the
-   [1.2.0 release](https://github.com/libishm1/rhino-outline/releases/tag/v1.2.0-ai) and
+   `RhinoOutline-AI-1.3.0.rhi` from the
+   [1.3.0 release](https://github.com/libishm1/rhino-outline/releases/tag/v1.3.0-ai) and
    double-click it. The `.rhi` (209 MB) includes all three networks and works offline; the
    package manager version (46 MB) includes U²-Net small and MobileSAM and downloads IS-Net
    (171 MB) the first time `Detect=AI` needs it, after asking. Either replaces the standard
@@ -151,6 +153,8 @@ on the CPlane. `Alpha=0` (automatic) uses the smallest radius that gives one out
 every curve; a larger `Alpha` gives wider, smoother bridges. A curve perpendicular to the CPlane
 is left out, and a single straight line encloses nothing, so it gives no outline.
 
+![OutlineCurve: black input curves, red outline](docs/outline-curve.png)
+
 ## How it works
 
 1. **Mask** (`RasterImage.cs`): every pixel becomes shape or background, see *Detect*.
@@ -173,7 +177,7 @@ builds against RhinoCommon 7.0 for .NET Framework 4.8, which Rhino 8 also loads.
 
 ## Changes
 
-**Unreleased**
+**1.3.0** (both editions)
 * `OutlineCurve`: the outline of curves in the model, projected onto the CPlane (only the
   outline is added). Tested in Rhino 7.38 and 8.30: closed curves with gaps, open strokes, 3D
   curves, nested curves with `Holes=Yes`, a tilted CPlane, a curve perpendicular to the CPlane,

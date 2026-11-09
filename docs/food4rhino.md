@@ -4,7 +4,7 @@ Text and steps for the food4Rhino page of the AI edition.
 
 ## Publish
 
-1. Done: `rhino-outline-ai` 1.2.0 is on the Yak server (pushed 2026-11-02). The Yak package
+1. Done: `rhino-outline-ai` is on the Yak server (1.2.0 pushed 2026-11-02, 1.3.0 on 2026-11-09). The Yak package
    is 46 MB: it includes U²-Net small and MobileSAM, and IS-Net is downloaded on first use.
    A full 210 MB package was dropped by the server after about a minute, twice. A new version
    is pushed with

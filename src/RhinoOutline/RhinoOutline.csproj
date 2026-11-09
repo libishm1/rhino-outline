@@ -7,7 +7,7 @@
     <RootNamespace>RhinoOutline</RootNamespace>
     <TargetExt>.rhp</TargetExt>
     <LangVersion>latest</LangVersion>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <Title>RhinoOutline AI</Title>
     <Company>RhinoOutline contributors</Company>
     <Product>RhinoOutline AI</Product>
